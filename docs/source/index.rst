@@ -4,7 +4,7 @@ torch-max-mem |release| Documentation
 Cookiecutter
 ------------
 This package was created with the `cookiecutter <https://github.com/cookiecutter/cookiecutter>`_
-package using `cookiecutter-snekpack <https://github.com/cthoyt/cookiecutter-snekpack`>_ template.
+package using `cookiecutter-snekpack <https://github.com/cthoyt/cookiecutter-snekpack>`_ template.
 It comes with the following:
 
 - Standard `src/` layout
@@ -25,7 +25,7 @@ It comes with the following:
 - A pre-formatted README with badges
 - A pre-formatted LICENSE file with the MIT License (you can change this to whatever you want, though)
 - A pre-formatted CONTRIBUTING guide
-- Automatic tool for releasing to PyPI with `tox -e finish`
+- Automatic tool for releasing to PyPI with ``tox -e finish``
 
 Table of Contents
 -----------------
