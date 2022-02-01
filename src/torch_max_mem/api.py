@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "maximize_memory_utilization",
+    "MemoryUtilizationMaximizer",
 ]
 
 R = TypeVar("R")
