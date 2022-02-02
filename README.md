@@ -36,7 +36,8 @@ This package provides decorators for memory utilization maximization with PyTorc
 
 ## 💪 Getting Started
 
-Assume you have a function for batched computation of nearest neighbors using brute-force distance calcucation.
+Assume you have a function for batched computation of nearest neighbors using brute-force distance calculation.
+
 ```python
 import torch
 
@@ -51,6 +52,7 @@ def knn(x, y, batch_size, k: int = 3):
 ```
 
 With `torch_max_mem` you can decorate this function to reduce the batch size until no more out-of-memory error occurs.
+
 ```python
 import torch
 from torch_max_mem import maximize_memory_utilization
@@ -68,6 +70,7 @@ def knn(x, y, batch_size, k: int = 3):
 ```
 
 In the code, you can now always pass the largest sensible batch size, e.g.,
+
 ```python
 x = torch.rand(100, 100, device="cuda")
 y = torch.rand(200, 100, device="cuda")
@@ -76,14 +79,12 @@ knn(x, y, batch_size=x.shape[0])
 
 ## 🚀 Installation
 
-<!-- Uncomment this section after your first ``tox -e finish``
 The most recent release can be installed from
 [PyPI](https://pypi.org/project/torch_max_mem/) with:
 
 ```bash
 $ pip install torch_max_mem
 ```
--->
 
 The most recent code and data can be installed directly from GitHub with:
 
@@ -112,31 +113,6 @@ Parts of the logic have been developed with [Laurent Vermue](https://github.com/
 ### ⚖️ License
 
 The code in this package is licensed under the MIT License.
-
-<!--
-### 📖 Citation
-
-Citation goes here!
--->
-
-<!--
-### 🎁 Support
-
-This project has been supported by the following organizations (in alphabetical order):
-
-- [Harvard Program in Therapeutic Science - Laboratory of Systems Pharmacology](https://hits.harvard.edu/the-program/laboratory-of-systems-pharmacology/)
-
--->
-
-<!--
-### 💰 Funding
-
-This project has been supported by the following grants:
-
-| Funding Body                                             | Program                                                                                                                       | Grant           |
-|----------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|-----------------|
-| DARPA                                                    | [Automating Scientific Knowledge Extraction (ASKE)](https://www.darpa.mil/program/automating-scientific-knowledge-extraction) | HR00111990009   |
--->
 
 ### 🍪 Cookiecutter
 
