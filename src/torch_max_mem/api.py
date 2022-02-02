@@ -14,6 +14,7 @@ import torch
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "is_oom_error",
     "maximize_memory_utilization",
     "MemoryUtilizationMaximizer",
 ]
@@ -21,7 +22,7 @@ __all__ = [
 R = TypeVar("R")
 
 
-def _is_oom_error(error: RuntimeError) -> bool:
+def is_oom_error(error: RuntimeError) -> bool:
     """Check whether a runtime error was caused by insufficient memory."""
     message = error.args[0]
     logger.debug(f"Checking error for OOM: {message}")
@@ -149,7 +150,7 @@ def maximize_memory_utilization(
                     torch.cuda.empty_cache()
 
                     # check whether the error is an out-of-memory error
-                    if not _is_oom_error(error=runtime_error):
+                    if not is_oom_error(error=runtime_error):
                         raise runtime_error
 
                     logger.info(f"Execution failed with {parameter_name}={max_value}")
