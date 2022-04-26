@@ -24,6 +24,10 @@ R = TypeVar("R")
 
 def is_oom_error(error: RuntimeError) -> bool:
     """Check whether a runtime error was caused by insufficient memory."""
+    if not error.args:
+        logger.debug(f"Cannot check empty error message for {error}.")
+        return False
+
     message = error.args[0]
     logger.debug(f"Checking error for OOM: {message}")
 
