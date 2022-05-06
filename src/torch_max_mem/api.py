@@ -215,6 +215,8 @@ class MemoryUtilizationMaximizer:
             Whether to check the input for CPU tensors and warn about potential CPU OOM problems.
         :param hasher:
             a hashing function for separate parameter values depending on hash value; if None, use the same for all
+        :param keys:
+            the keys to use for creating a hasher. Only used if hasher is None.
         """
         self.parameter_name = parameter_name
         self.q = q
