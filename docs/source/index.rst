@@ -1,6 +1,9 @@
 torch-max-mem |release| Documentation
 =====================================
 
+``torch-max-mem`` is a package to enable automatic memory optimization / batch size selection via simple function
+decorators.
+
 Table of Contents
 -----------------
 .. toctree::
