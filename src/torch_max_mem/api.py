@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "is_oom_error",
+    "maximize_memory_utilization_decorator",
     "maximize_memory_utilization",
-    "MemoryUtilizationMaximizer",
 ]
 
 R = TypeVar("R")
@@ -46,7 +46,7 @@ def is_oom_error(error: RuntimeError) -> bool:
     return False
 
 
-def maximize_memory_utilization(
+def maximize_memory_utilization_decorator(
     parameter_name: str = "batch_size",
     q: int = 32,
     cpu_warning: bool = True,
@@ -228,7 +228,7 @@ class MemoryUtilizationMaximizer:
 
     def __call__(self, func: Callable[..., R]) -> Callable[..., R]:
         """Wrap the function."""
-        wrapped = maximize_memory_utilization(
+        wrapped = maximize_memory_utilization_decorator(
             parameter_name=self.parameter_name,
             q=self.q,
             cpu_warning=self.cpu_warning,
@@ -243,3 +243,7 @@ class MemoryUtilizationMaximizer:
             return result
 
         return inner
+
+
+# alias
+maximize_memory_utilization = MemoryUtilizationMaximizer
