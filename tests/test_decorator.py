@@ -8,7 +8,7 @@ import numpy.testing
 import torch
 
 from torch_max_mem import maximize_memory_utilization
-from torch_max_mem.api import MemoryUtilizationMaximizer
+from torch_max_mem.api import maximize_memory_utilization_decorator
 
 
 def knn(x, y, batch_size, k: int = 3):
@@ -22,10 +22,8 @@ def knn(x, y, batch_size, k: int = 3):
     )
 
 
-wrapped_knn = maximize_memory_utilization(parameter_name="batch_size")(knn)
-
-maximizer = MemoryUtilizationMaximizer()
-wrapped_knn_stateful = maximizer(knn)
+wrapped_knn = maximize_memory_utilization_decorator(parameter_name="batch_size")(knn)
+wrapped_knn_stateful = maximize_memory_utilization()(knn)
 
 
 class TestDecorator(unittest.TestCase):

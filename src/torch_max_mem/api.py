@@ -1,6 +1,50 @@
 # -*- coding: utf-8 -*-
 
-"""Main code."""
+"""
+This module contains the public API.
+
+Assume you have a function for batched computation of nearest neighbors using brute-force distance calculation.
+
+.. code-block:: python
+
+    import torch
+
+    def knn(x, y, batch_size, k: int = 3):
+        return torch.cat(
+            [
+                torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
+                for start in range(0, x.shape[0], batch_size)
+            ],
+            dim=0,
+        )
+
+Using :func:`maximize_memory_utilization` you can decorate this function to reduce the batch size until no more
+out-of-memory error occurs.
+
+.. code-block:: python
+
+    import torch
+    from torch_max_mem import maximize_memory_utilization
+
+    @maximize_memory_utilization()
+    def knn(x, y, batch_size, k: int = 3):
+        return torch.cat(
+            [
+                torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=0, largest=False).indices
+                for start in range(0, x.shape[0], batch_size)
+            ],
+            dim=0,
+        )
+
+
+In the code, you can now always pass the largest sensible batch size, e.g.,
+
+.. code-block:: python
+
+    x = torch.rand(100, 100, device="cuda")
+    y = torch.rand(200, 100, device="cuda")
+    knn(x, y, batch_size=x.shape[0])
+"""
 # cf. https://gist.github.com/mberr/c37a8068b38cabc98228db2cbe358043
 
 import functools
@@ -15,8 +59,8 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "is_oom_error",
+    "maximize_memory_utilization_decorator",
     "maximize_memory_utilization",
-    "MemoryUtilizationMaximizer",
 ]
 
 R = TypeVar("R")
@@ -46,7 +90,7 @@ def is_oom_error(error: RuntimeError) -> bool:
     return False
 
 
-def maximize_memory_utilization(
+def maximize_memory_utilization_decorator(
     parameter_name: str = "batch_size",
     q: int = 32,
     cpu_warning: bool = True,
@@ -228,7 +272,7 @@ class MemoryUtilizationMaximizer:
 
     def __call__(self, func: Callable[..., R]) -> Callable[..., R]:
         """Wrap the function."""
-        wrapped = maximize_memory_utilization(
+        wrapped = maximize_memory_utilization_decorator(
             parameter_name=self.parameter_name,
             q=self.q,
             cpu_warning=self.cpu_warning,
@@ -243,3 +287,7 @@ class MemoryUtilizationMaximizer:
             return result
 
         return inner
+
+
+# alias
+maximize_memory_utilization = MemoryUtilizationMaximizer
