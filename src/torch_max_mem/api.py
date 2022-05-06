@@ -7,7 +7,7 @@ import functools
 import inspect
 import itertools
 import logging
-from typing import Any, Callable, Mapping, MutableMapping, Optional, Tuple, TypeVar
+from typing import Any, Callable, Collection, Mapping, MutableMapping, Optional, Tuple, TypeVar
 
 import torch
 
@@ -168,6 +168,31 @@ def maximize_memory_utilization(
     return decorator_maximize_memory_utilization
 
 
+class KeyHasher:
+    """A hasher based on (a subset of) keys."""
+
+    def __init__(self, keys: Optional[Collection[str]]) -> None:
+        """
+        Initialize the hasher.
+
+        :param keys:
+            the keys whose associated values should be used for hashing
+        """
+        self.keys = keys or []
+
+    def __call__(self, kwargs: Mapping[str, Any]) -> int:
+        """
+        Calculate the hash based on the values associated with the selected keys.
+
+        :param kwargs:
+            the key-value dictionary
+
+        :return:
+            the hash of the tuple of values associated with the stored keys.
+        """
+        return hash(tuple(*(kwargs.get(key, None) for key in self.keys)))
+
+
 class MemoryUtilizationMaximizer:
     """Stateful memory utilization maximizer."""
 
@@ -177,6 +202,7 @@ class MemoryUtilizationMaximizer:
         q: int = 32,
         cpu_warning: bool = True,
         hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
+        keys: Optional[str] = None,
     ) -> None:
         """
         Initialize the stateful maximizer.
@@ -194,6 +220,8 @@ class MemoryUtilizationMaximizer:
         self.q = q
         self.cpu_warning = cpu_warning
         self.parameter_value: MutableMapping[int, int] = dict()
+        if hasher is None:
+            hasher = KeyHasher(keys=keys)
         self.hasher = hasher
 
     def __call__(self, func: Callable[..., R]) -> Callable[..., R]:
@@ -207,7 +235,7 @@ class MemoryUtilizationMaximizer:
         @functools.wraps(wrapped)
         def inner(*args, **kwargs):
             """Evaluate function with the stored parameter size."""
-            h = 0 if self.hasher is None else self.hasher(kwargs)
+            h = self.hasher(kwargs)
             kwargs[self.parameter_name] = self.parameter_value.get(h) or kwargs[self.parameter_name]
             result, self.parameter_value[h] = wrapped(*args, **kwargs)
             return result
