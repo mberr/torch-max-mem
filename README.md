@@ -55,10 +55,10 @@ With `torch_max_mem` you can decorate this function to reduce the batch size unt
 
 ```python
 import torch
-from torch_max_mem import MemoryUtilizationMaximizer
+from torch_max_mem import maximize_memory_utilization
 
 
-@MemoryUtilizationMaximizer()
+@maximize_memory_utilization()
 def knn(x, y, batch_size, k: int = 3):
     return torch.cat(
         [
