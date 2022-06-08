@@ -58,8 +58,6 @@ import torch
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "is_oom_error",
-    "maximize_memory_utilization_decorator",
     "maximize_memory_utilization",
 ]
 
