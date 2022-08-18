@@ -76,3 +76,14 @@ def test_key_hasher(keys: Optional[Tuple[str]]):
 
     wrapped = maximize_memory_utilization(keys=keys)(func)
     wrapped(a=1, b=3, c=7, batch_size=2)
+
+
+def test_default_no_arg():
+    """Test decoration's interaction with default parameters."""
+
+    @maximize_memory_utilization()
+    def func(batch_size: int = 7):
+        """Test function."""
+
+    # call with no arg
+    func()
