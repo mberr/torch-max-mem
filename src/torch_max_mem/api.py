@@ -283,11 +283,13 @@ class MemoryUtilizationMaximizer:
         def inner(*args, **kwargs):
             """Evaluate function with the stored parameter size."""
             h = self.hasher(kwargs)
-            bound = signature.bind(*args, **kwargs)
-            bound.apply_defaults()
-            kwargs[self.parameter_name] = (
-                self.parameter_value.get(h) or bound.arguments[self.parameter_name]
-            )
+            if h in self.parameter_value:
+                v = self.parameter_value
+            else:
+                bound = signature.bind(*args, **kwargs)
+                bound.apply_defaults()
+                v = bound.arguments[self.parameter_name]
+            kwargs[self.parameter_name] = v
             result, self.parameter_value[h] = wrapped(*args, **kwargs)
             return result
 
