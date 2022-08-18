@@ -144,9 +144,6 @@ def maximize_memory_utilization_decorator(
         if parameter_name not in signature.parameters.keys():
             raise ValueError(f"{func} does not have a parameter {parameter_name}.")
         _parameter = signature.parameters[parameter_name]
-        if _parameter.kind != inspect.Parameter.POSITIONAL_OR_KEYWORD:
-            # TODO: we could also support positional ones by saving the position
-            raise ValueError(f"{parameter_name} must be a keyword based parameter.")
         if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation != int:
             logger.warning(
                 f"Memory utilization maximization is written for integer parameters, but the "
@@ -178,7 +175,9 @@ def maximize_memory_utilization_decorator(
                 if an invalid  (or no) maximum parameter value is found
             """
             check_for_cpu_tensors(*args, **kwargs)
-            max_value = kwargs.pop(parameter_name, default_max_value)
+            bound_arguments = signature.bind(*args, **kwargs)
+            bound_arguments.apply_defaults()
+            max_value = bound_arguments.arguments.pop(parameter_name, default_max_value)
             if max_value is None:
                 raise ValueError(
                     f"Invalid maximum value for parameter {parameter_name}: {max_value}",
@@ -190,7 +189,10 @@ def maximize_memory_utilization_decorator(
                     parameter_name: max_value,
                 }
                 try:
-                    return func(*args, **p_kwargs, **kwargs), max_value
+                    return (
+                        func(*bound_arguments.args, **p_kwargs, **bound_arguments.kwargs),
+                        max_value,
+                    )
                 except RuntimeError as runtime_error:
                     # clear cache
                     torch.cuda.empty_cache()
