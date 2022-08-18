@@ -234,7 +234,7 @@ class KeyHasher:
         :return:
             the hash of the tuple of values associated with the stored keys.
         """
-        return hash(tuple(kwargs.get(k, None) for k in self.keys))
+        return hash(tuple(kwargs.get(key, None) for key in self.keys))
 
 
 class MemoryUtilizationMaximizer:
