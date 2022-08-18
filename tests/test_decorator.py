@@ -2,11 +2,11 @@
 
 """Tests."""
 
-from typing import Optional, Tuple
 import unittest
-import pytest
+from typing import Optional, Tuple
 
 import numpy.testing
+import pytest
 import torch
 
 from torch_max_mem import maximize_memory_utilization
