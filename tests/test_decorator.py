@@ -50,3 +50,15 @@ class TestDecorator(unittest.TestCase):
                 knn(x, y, batch_size).numpy(),
                 wrapped_knn_stateful(x, y, batch_size=x.shape[0]).numpy(),
             )
+
+
+def test_parameter_types():
+    """Test decoration for various parameter types."""
+
+    @maximize_memory_utilization()
+    def positional_or_keyword_only_func(a, batch_size: int):
+        """Evaluate a function where batch_size is a positional or keyword parameter."""
+
+    @maximize_memory_utilization()
+    def keyword_only_func(*a, batch_size: int):
+        """Evaluate a function where batch_size is a keyword-only parameter."""
