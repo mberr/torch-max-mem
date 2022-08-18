@@ -284,7 +284,7 @@ class MemoryUtilizationMaximizer:
             """Evaluate function with the stored parameter size."""
             h = self.hasher(kwargs)
             if h in self.parameter_value:
-                v = self.parameter_value
+                v = self.parameter_value[h]
             else:
                 bound = signature.bind(*args, **kwargs)
                 bound.apply_defaults()
