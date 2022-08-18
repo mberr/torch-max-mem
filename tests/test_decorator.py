@@ -3,8 +3,10 @@
 """Tests."""
 
 import unittest
+from typing import Optional, Tuple
 
 import numpy.testing
+import pytest
 import torch
 
 from torch_max_mem import maximize_memory_utilization
@@ -62,3 +64,15 @@ def test_parameter_types():
     @maximize_memory_utilization()
     def keyword_only_func(*a, batch_size: int):
         """Evaluate a function where batch_size is a keyword-only parameter."""
+
+
+@pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
+def test_key_hasher(keys: Optional[Tuple[str]]):
+    """Test ad-hoc hasher."""
+
+    def func(a, b, c, batch_size: int):
+        """Test function."""
+        pass
+
+    wrapped = maximize_memory_utilization(keys=keys)(func)
+    wrapped(a=1, b=3, c=7, batch_size=2)
