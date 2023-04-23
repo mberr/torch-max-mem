@@ -4,7 +4,6 @@
 
 import unittest
 from typing import Optional, Tuple
-from unittest import mock
 
 import numpy.testing
 import pytest
