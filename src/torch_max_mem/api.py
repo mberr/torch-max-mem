@@ -47,6 +47,8 @@ In the code, you can now always pass the largest sensible batch size, e.g.,
 """
 # cf. https://gist.github.com/mberr/c37a8068b38cabc98228db2cbe358043
 
+from __future__ import annotations
+
 import functools
 import inspect
 import itertools
@@ -67,7 +69,7 @@ __all__ = [
 R = TypeVar("R")
 
 
-def is_oom_error(error: RuntimeError) -> bool:
+def is_oom_error(error: RuntimeError | OutOfMemoryError) -> bool:
     """Check whether a runtime error was caused by insufficient memory."""
     if OutOfMemoryError is not None and isinstance(error, OutOfMemoryError):
         return True
@@ -177,7 +179,9 @@ def maximize_memory_utilization_decorator(
             :raises MemoryError:
                 if the execution did not even succeed with the smallest parameter value
             :raises ValueError:
-                if an invalid  (or no) maximum parameter value is found
+                if an invalid (or no) maximum parameter value is found
+            :raises OutOfMemoryError:
+                this should never be raised, but instead converted to MemoryError
             """
             check_for_cpu_tensors(*args, **kwargs)
             bound_arguments = signature.bind(*args, **kwargs)
