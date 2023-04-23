@@ -18,7 +18,7 @@ def knn(x, y, batch_size, k: int = 3):
     """Compute k-nearst neigbors via batched brute-force distance calculation."""
     return torch.cat(
         [
-            torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
+            torch.cdist(x[start: start + batch_size], y).topk(k=k, dim=1, largest=False).indices
             for start in range(0, x.shape[0], batch_size)
         ],
         dim=0,
@@ -93,12 +93,11 @@ def test_default_no_arg():
 def test_optimization():
     """Test optimization."""
 
-    @mock.patch("torch_max_mem.api.is_oom_error", lambda error: True)
     @maximize_memory_utilization()
     def func(batch_size: int = 8):
         """Test function."""
         if batch_size > 2:
-            raise RuntimeError()
+            raise torch.cuda.OutOfMemoryError()
         return batch_size
 
     assert func() == 2
