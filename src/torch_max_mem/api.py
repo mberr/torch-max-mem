@@ -55,6 +55,9 @@ from typing import Any, Callable, Collection, Mapping, MutableMapping, Optional,
 
 import torch
 
+# for torch >= 2.0, there is a dedicated error class
+OutOfMemoryError = torch.cuda.OutOfMemoryError if hasattr(torch.cuda, "OutOfMemoryError") else None
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -66,6 +69,8 @@ R = TypeVar("R")
 
 def is_oom_error(error: RuntimeError) -> bool:
     """Check whether a runtime error was caused by insufficient memory."""
+    if OutOfMemoryError is not None and isinstance(error, OutOfMemoryError):
+        return True
     if not error.args:
         logger.debug(f"Cannot check empty error message for {error}.")
         return False
@@ -193,13 +198,13 @@ def maximize_memory_utilization_decorator(
                         func(*bound_arguments.args, **p_kwargs, **bound_arguments.kwargs),
                         max_value,
                     )
-                except RuntimeError as runtime_error:
+                except (RuntimeError, OutOfMemoryError) as maybe_oom_error:
                     # clear cache
                     torch.cuda.empty_cache()
 
                     # check whether the error is an out-of-memory error
-                    if not is_oom_error(error=runtime_error):
-                        raise runtime_error
+                    if not is_oom_error(error=maybe_oom_error):
+                        raise maybe_oom_error
 
                     logger.info(f"Execution failed with {parameter_name}={max_value}")
                     max_value //= 2
