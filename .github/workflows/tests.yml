@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.8", "3.9", "3.10" ]
+        python-version: [ "3.8", "3.11" ]
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
@@ -30,9 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # no torch for 3.10 yet
-        # python-version: [ "3.8", "3.9", "3.10" ]
-        python-version: [ "3.8", "3.9" ]
+        python-version: [ "3.8", "3.11" ]
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
@@ -53,9 +51,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest ]
-        # no torch for 3.10 yet
-        # python-version: [ "3.8", "3.9", "3.10" ]
-        python-version: [ "3.8", "3.9" ]
+        python-version: [ "3.8", "3.11" ]
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
