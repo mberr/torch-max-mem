@@ -46,12 +46,23 @@ In the code, you can now always pass the largest sensible batch size, e.g.,
     knn(x, y, batch_size=x.shape[0])
 """
 # cf. https://gist.github.com/mberr/c37a8068b38cabc98228db2cbe358043
+from __future__ import annotations
 
 import functools
 import inspect
 import itertools
 import logging
-from typing import Any, Callable, Collection, Mapping, MutableMapping, Optional, Tuple, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+)
 
 import torch
 
@@ -64,11 +75,110 @@ __all__ = [
 R = TypeVar("R")
 
 
+def upgrade_to_sequence(
+    parameter_name: str | Sequence[str], q: int | Sequence[int]
+) -> tuple[tuple[str, ...], tuple[int, ...]]:
+    """
+    Ensure that both, parameter names and q values, are provided as a sequence.
+
+    Besides upgrading both to a tuple, it will also broadcast q if necessary.
+
+    :param parameter_name:
+        the parameter name, or a sequence thereof
+    :param q:
+        the q value, or a sequence thereof
+
+    :return:
+        a tuple of parameter names and a sequence of q values of same length
+
+    :raises ValueError:
+        when the (inferred) length of q and parameter_name do not match
+    """
+    # normalize parameter name
+    parameter_names = (
+        (parameter_name,) if isinstance(parameter_name, str) else tuple(parameter_name)
+    )
+    q = (q,) if isinstance(q, int) else tuple(q)
+    q = q * len(parameter_names) if len(q) == 1 else q
+    if len(q) != len(parameter_names):
+        raise ValueError(f"length of {q=} does not match length of {parameter_names=}")
+    return parameter_names, q
+
+
+def determine_default_max_value(
+    func: Callable, parameter_name: str, signature: inspect.Signature
+) -> int | None:
+    """
+    Determine the default maximum value based on the signature.
+
+    :param func:
+        the function; only used for nice error messages
+    :param parameter_name:
+        the name of the parameter
+    :param signature:
+        the signature of the function
+
+    :return:
+        the default value as an integer, if any is given.
+
+    :raises ValueError:
+        when the function does not have a parameter of the given name
+    """
+    if parameter_name not in signature.parameters.keys():
+        raise ValueError(f"{func} does not have a parameter {parameter_name}.")
+    _parameter = signature.parameters[parameter_name]
+    if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation != int:
+        logger.warning(
+            f"Memory utilization maximization is written for integer parameters, but the "
+            f"{parameter_name} is annotated as {_parameter.annotation}; casting to int",
+        )
+    if _parameter.default != inspect.Parameter.empty:
+        return int(_parameter.default)
+    return None
+
+
+def determine_max_value(
+    bound_arguments: inspect.BoundArguments,
+    args: Sequence,
+    kwargs: Mapping[str, Any],
+    parameter_name: str,
+    default_max_value: int | Callable[..., int] | None,
+) -> int:
+    """
+    Either use the provided value, or the default maximum value.
+
+    :param bound_arguments:
+        the bound arguments of the function
+    :param args:
+        the positional parameters of the function: necessary when the default max value is a callable
+    :param kwargs:
+        the keyword parameters of the function: necessary when the default max value is a callable
+    :param parameter_name:
+        the parameter name
+    :param default_max_value:
+        the default max value, or a callable to determine one
+
+    :return:
+        the maximum value
+
+    :raises ValueError:
+        when the given value to the parameter is None
+    """
+    max_value = bound_arguments.arguments.pop(parameter_name, default_max_value)
+    if max_value is None:
+        raise ValueError(
+            f"Invalid maximum value for parameter {parameter_name}: {max_value}",
+        )
+    elif callable(max_value):
+        max_value = max_value(*args, **kwargs)
+    return max_value
+
+
 def maximize_memory_utilization_decorator(
-    parameter_name: str = "batch_size",
-    q: int = 32,
+    parameter_name: str | Sequence[str] = "batch_size",
+    q: int | Sequence[int] = 32,
     cpu_warning: bool = True,
-) -> Callable[[Callable[..., R]], Callable[..., Tuple[R, int]]]:
+) -> Callable[[Callable[..., R]], Callable[..., Tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
 
@@ -100,9 +210,11 @@ def maximize_memory_utilization_decorator(
         def check_for_cpu_tensors(*args, **kwargs):
             """Skip checking whether any tensor argument is on CPU."""
 
+    parameter_names, qs = upgrade_to_sequence(parameter_name, q)
+
     def decorator_maximize_memory_utilization(
         func: Callable[..., R],
-    ) -> Callable[..., Tuple[R, int]]:
+    ) -> Callable[..., Tuple[R, tuple[int, ...]]]:
         """
         Decorate a function to maximize memory utilization.
 
@@ -111,27 +223,16 @@ def maximize_memory_utilization_decorator(
 
         :return:
             The decorated function.
-
-        :raises ValueError:
-            if the provided function does not contain a suitable parameter
         """
         # Input validation
         signature = inspect.signature(func)
-        if parameter_name not in signature.parameters.keys():
-            raise ValueError(f"{func} does not have a parameter {parameter_name}.")
-        _parameter = signature.parameters[parameter_name]
-        if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation != int:
-            logger.warning(
-                f"Memory utilization maximization is written for integer parameters, but the "
-                f"{parameter_name} is annotated as {_parameter.annotation}",
-            )
-        if _parameter.default != inspect.Parameter.empty:
-            default_max_value = _parameter.default
-        else:
-            default_max_value = None
+        default_max_values = {
+            name: determine_default_max_value(func=func, parameter_name=name, signature=signature)
+            for name in parameter_names
+        }
 
         @functools.wraps(func)
-        def wrapper_maximize_memory_utilization(*args, **kwargs) -> Tuple[R, int]:
+        def wrapper_maximize_memory_utilization(*args, **kwargs) -> Tuple[R, tuple[int, ...]]:
             """
             Wrap a function to maximize memory utilization by successive halving.
 
@@ -145,36 +246,46 @@ def maximize_memory_utilization_decorator(
 
             :raises MemoryError:
                 if the execution did not even succeed with the smallest parameter value
-            :raises ValueError:
-                if an invalid (or no) maximum parameter value is found
             """
             check_for_cpu_tensors(*args, **kwargs)
             bound_arguments = signature.bind(*args, **kwargs)
             bound_arguments.apply_defaults()
-            max_value = bound_arguments.arguments.pop(parameter_name, default_max_value)
-            if max_value is None:
-                raise ValueError(
-                    f"Invalid maximum value for parameter {parameter_name}: {max_value}",
+            # determine max values
+            max_values = [
+                determine_max_value(
+                    bound_arguments=bound_arguments,
+                    args=args,
+                    kwargs=kwargs,
+                    parameter_name=name,
+                    default_max_value=default_max_value,
                 )
-            elif callable(max_value):
-                max_value = max_value(*args, **kwargs)
-            while max_value > 0:
-                p_kwargs = {
-                    parameter_name: max_value,
-                }
-                try:
-                    return (
-                        func(*bound_arguments.args, **p_kwargs, **bound_arguments.kwargs),
-                        max_value,
-                    )
-                except torch.cuda.OutOfMemoryError:
-                    # clear cache
-                    torch.cuda.empty_cache()
-                    logger.info(f"Execution failed with {parameter_name}={max_value}")
-                    max_value //= 2
-                    if max_value > q:
-                        max_value = max_value // q * q
-            raise MemoryError(f"Execution did not even succeed with {parameter_name}=1.")
+                for name, default_max_value in default_max_values.items()
+            ]
+            i = 0
+
+            while i < len(max_values):
+                while max_values[i] > 0:
+                    p_kwargs = {
+                        name: max_value for name, max_value in zip(parameter_names, max_values)
+                    }
+                    try:
+                        return (
+                            func(*bound_arguments.args, **p_kwargs, **bound_arguments.kwargs),
+                            tuple(max_values),
+                        )
+                    except torch.cuda.OutOfMemoryError:
+                        # clear cache
+                        torch.cuda.empty_cache()
+                        logger.info(f"Execution failed with {p_kwargs=}")
+                        max_values[i] //= 2
+                        if max_values[i] > qs[i]:
+                            max_values[i] = max_values[i] // qs[i] * qs[i]
+                # we lowered the current parameter to 1, but still see memory issues; continue with the next in line...
+                max_values[i] = 1
+                i += 1
+            raise MemoryError(
+                f"Execution did not even succeed with {parameter_names} all equal to 1."
+            )
 
         return wrapper_maximize_memory_utilization
 
@@ -211,8 +322,8 @@ class MemoryUtilizationMaximizer:
 
     def __init__(
         self,
-        parameter_name: str = "batch_size",
-        q: int = 32,
+        parameter_name: str | Sequence[str] = "batch_size",
+        q: int | Sequence[int] = 32,
         cpu_warning: bool = True,
         hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
         keys: Optional[str] = None,
@@ -231,10 +342,10 @@ class MemoryUtilizationMaximizer:
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
         """
-        self.parameter_name = parameter_name
-        self.q = q
+        self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
         self.cpu_warning = cpu_warning
-        self.parameter_value: MutableMapping[int, int] = dict()
+        self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
+        # fixme: we do not want to include the parameter names into the hash?
         if hasher is None:
             hasher = KeyHasher(keys=keys)
         self.hasher = hasher
@@ -242,8 +353,8 @@ class MemoryUtilizationMaximizer:
     def __call__(self, func: Callable[..., R]) -> Callable[..., R]:
         """Wrap the function."""
         wrapped = maximize_memory_utilization_decorator(
-            parameter_name=self.parameter_name,
-            q=self.q,
+            parameter_name=self.parameter_names,
+            q=self.qs,
             cpu_warning=self.cpu_warning,
         )(func)
         signature = inspect.signature(func)
@@ -253,12 +364,13 @@ class MemoryUtilizationMaximizer:
             """Evaluate function with the stored parameter size."""
             h = self.hasher(kwargs)
             if h in self.parameter_value:
-                v = self.parameter_value[h]
+                values = self.parameter_value[h]
             else:
                 bound = signature.bind(*args, **kwargs)
                 bound.apply_defaults()
-                v = bound.arguments[self.parameter_name]
-            kwargs[self.parameter_name] = v
+                # todo: default logic?
+                values = [bound.arguments[name] for name in self.parameter_names]
+            kwargs.update(zip(self.parameter_names, values))
             result, self.parameter_value[h] = wrapped(*args, **kwargs)
             return result
 

@@ -100,3 +100,16 @@ def test_optimization():
         return batch_size
 
     assert func() == 2
+
+
+def test_optimization_multi_level():
+    """Test optimization with multiple levels."""
+
+    @maximize_memory_utilization(parameter_name=("batch_size", "slice_size"))
+    def func(batch_size: int = 8, slice_size: int = 16):
+        """Test function."""
+        if batch_size > 1 or slice_size > 8:
+            raise torch.cuda.OutOfMemoryError()
+        return batch_size, slice_size
+
+    assert func() == (1, 8)
