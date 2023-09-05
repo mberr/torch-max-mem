@@ -59,9 +59,9 @@ from typing import (
     Mapping,
     MutableMapping,
     Optional,
+    Sequence,
     Tuple,
     TypeVar,
-    Sequence,
 )
 
 import torch
@@ -78,6 +78,22 @@ R = TypeVar("R")
 def upgrade_to_sequence(
     parameter_name: str | Sequence[str], q: int | Sequence[int]
 ) -> tuple[tuple[str, ...], tuple[int, ...]]:
+    """
+    Ensure that both, parameter names and q values, are provided as a sequence.
+
+    Besides upgrading both to a tuple, it will also broadcast q if necessary.
+
+    :param parameter_name:
+        the parameter name, or a sequence thereof
+    :param q:
+        the q value, or a sequence thereof
+
+    :return:
+        a tuple of parameter names and a sequence of q values of same length
+
+    :raises ValueError:
+        when the (inferred) length of q and parameter_name do not match
+    """
     # normalize parameter name
     parameter_names = (
         (parameter_name,) if isinstance(parameter_name, str) else tuple(parameter_name)
@@ -92,6 +108,22 @@ def upgrade_to_sequence(
 def determine_default_max_value(
     func: Callable, parameter_name: str, signature: inspect.Signature
 ) -> int | None:
+    """
+    Determine the default maximum value based on the signature.
+
+    :param func:
+        the function; only used for nice error messages
+    :param parameter_name:
+        the name of the parameter
+    :param signature:
+        the signature of the function
+
+    :return:
+        the default value as an integer, if any is given.
+
+    :raises ValueError:
+        when the function does not have a parameter of the given name
+    """
     if parameter_name not in signature.parameters.keys():
         raise ValueError(f"{func} does not have a parameter {parameter_name}.")
     _parameter = signature.parameters[parameter_name]
@@ -110,8 +142,28 @@ def determine_max_value(
     args: Sequence,
     kwargs: Mapping[str, Any],
     parameter_name: str,
-    default_max_value: int,
+    default_max_value: int | Callable[..., int] | None,
 ) -> int:
+    """
+    Either use the provided value, or the default maximum value.
+
+    :param bound_arguments:
+        the bound arguments of the function
+    :param args:
+        the positional parameters of the function: necessary when the default max value is a callable
+    :param kwargs:
+        the keyword parameters of the function: necessary when the default max value is a callable
+    :param parameter_name:
+        the parameter name
+    :param default_max_value:
+        the default max value, or a callable to determine one
+
+    :return:
+        the maximum value
+
+    :raises ValueError:
+        when the given value to the parameter is None
+    """
     max_value = bound_arguments.arguments.pop(parameter_name, default_max_value)
     if max_value is None:
         raise ValueError(
@@ -171,9 +223,6 @@ def maximize_memory_utilization_decorator(
 
         :return:
             The decorated function.
-
-        :raises ValueError:
-            if the provided function does not contain a suitable parameter
         """
         # Input validation
         signature = inspect.signature(func)
@@ -197,8 +246,6 @@ def maximize_memory_utilization_decorator(
 
             :raises MemoryError:
                 if the execution did not even succeed with the smallest parameter value
-            :raises ValueError:
-                if an invalid (or no) maximum parameter value is found
             """
             check_for_cpu_tensors(*args, **kwargs)
             bound_arguments = signature.bind(*args, **kwargs)
