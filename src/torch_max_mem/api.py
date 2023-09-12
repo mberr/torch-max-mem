@@ -174,6 +174,18 @@ def determine_max_value(
     return max_value
 
 
+# cf. https://github.com/pykeen/pykeen/pull/279
+ADDITIONAL_OOM_ERROR_INFIXES = {
+    # An error that occurs because the input in CUDA is too big.
+    # cf. https://discuss.pytorch.org/t/cudnn-status-not-supported-this-error-may-appear-if-you-passed-in-a-non-contiguous-input/68826
+    "cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.",
+    # The torch < 2.0 way of OOM errors
+    "CUDA out of memory.",
+    # cf. https://github.com/pytorch/pytorch/issues/51871
+    "nonzero is not supported for tensors with more than INT_MAX elements",
+}
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
@@ -273,7 +285,15 @@ def maximize_memory_utilization_decorator(
                             func(*bound_arguments.args, **p_kwargs, **bound_arguments.kwargs),
                             tuple(max_values),
                         )
-                    except torch.cuda.OutOfMemoryError:
+                    except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
+                        # check for additional OOM error types
+                        if isinstance(error, RuntimeError):
+                            for infix in ADDITIONAL_OOM_ERROR_INFIXES:
+                                if infix in error.args[0]:
+                                    break
+                            else:  # none matched -> this is a different error
+                                raise error
+
                         # clear cache
                         torch.cuda.empty_cache()
                         logger.info(f"Execution failed with {p_kwargs=}")
