@@ -177,7 +177,7 @@ def determine_max_value(
 # cf. https://github.com/pykeen/pykeen/pull/279
 ADDITIONAL_OOM_ERROR_INFIXES = {
     # An error that occurs because the input in CUDA is too big.
-    # cf. https://discuss.pytorch.org/t/cudnn-status-not-supported-this-error-may-appear-if-you-passed-in-a-non-contiguous-input/68826
+    # cf. https://discuss.pytorch.org/t/cudnn-status-not-supported-this-error-may-appear-if-you-passed-in-a-non-contiguous-input/  # noqa: E501
     "cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.",
     # The torch < 2.0 way of OOM errors
     "CUDA out of memory.",
@@ -258,6 +258,8 @@ def maximize_memory_utilization_decorator(
 
             :raises MemoryError:
                 if the execution did not even succeed with the smallest parameter value
+            :raises RuntimeError:
+                if a runtime error which is unrelated to known OOM errors occurred
             """
             check_for_cpu_tensors(*args, **kwargs)
             bound_arguments = signature.bind(*args, **kwargs)
