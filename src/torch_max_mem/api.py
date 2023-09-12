@@ -289,12 +289,10 @@ def maximize_memory_utilization_decorator(
                         )
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
                         # check for additional OOM error types
-                        if isinstance(error, RuntimeError):
-                            for infix in ADDITIONAL_OOM_ERROR_INFIXES:
-                                if infix in error.args[0]:
-                                    break
-                            else:  # none matched -> this is a different error
-                                raise error
+                        if isinstance(error, RuntimeError) and not any(
+                            infix in error.args[0] for infix in ADDITIONAL_OOM_ERROR_INFIXES
+                        ):
+                            raise error
 
                         # clear cache
                         torch.cuda.empty_cache()
