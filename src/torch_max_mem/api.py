@@ -66,6 +66,7 @@ from typing import (
 )
 
 import torch
+from typing_extensions import ParamSpec
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ __all__ = [
 ]
 
 R = TypeVar("R")
+P = ParamSpec("P")
 
 
 def upgrade_to_sequence(
@@ -201,7 +203,7 @@ def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
     cpu_warning: bool = True,
-) -> Callable[[Callable[..., R]], Callable[..., Tuple[R, tuple[int, ...]]]]:
+) -> Callable[[Callable[P, R]], Callable[P, Tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
 
@@ -233,8 +235,8 @@ def maximize_memory_utilization_decorator(
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
-        func: Callable[..., R],
-    ) -> Callable[..., Tuple[R, tuple[int, ...]]]:
+        func: Callable[P, R]
+    ) -> Callable[P, Tuple[R, tuple[int, ...]]]:
         """
         Decorate a function to maximize memory utilization.
 
@@ -252,7 +254,9 @@ def maximize_memory_utilization_decorator(
         }
 
         @functools.wraps(func)
-        def wrapper_maximize_memory_utilization(*args, **kwargs) -> Tuple[R, tuple[int, ...]]:
+        def wrapper_maximize_memory_utilization(
+            *args: P.args, **kwargs: P.kwargs
+        ) -> Tuple[R, tuple[int, ...]]:
             """
             Wrap a function to maximize memory utilization by successive halving.
 
@@ -411,7 +415,7 @@ class MemoryUtilizationMaximizer:
             hasher = KeyHasher(keys=keys)
         self.hasher = hasher
 
-    def __call__(self, func: Callable[..., R]) -> Callable[..., R]:
+    def __call__(self, func: Callable[P, R]) -> Callable[P, R]:
         """Wrap the function."""
         wrapped = maximize_memory_utilization_decorator(
             parameter_name=self.parameter_names,
@@ -421,7 +425,7 @@ class MemoryUtilizationMaximizer:
         signature = inspect.signature(func)
 
         @functools.wraps(wrapped)
-        def inner(*args, **kwargs):
+        def inner(*args: P.args, **kwargs: P.kwargs) -> R:
             """Evaluate function with the stored parameter size."""
             h = self.hasher(kwargs)
             if h in self.parameter_value:
