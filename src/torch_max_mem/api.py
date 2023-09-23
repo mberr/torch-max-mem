@@ -69,6 +69,14 @@ from typing import (
 import torch
 from typing_extensions import ParamSpec
 
+try:
+    import torch.mps
+except ImportError:
+    mps_available = False
+else:
+    mps_available = True
+
+
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -372,7 +380,7 @@ def maximize_memory_utilization_decorator(
                         # clear cache
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
-                        if hasattr(torch, "mps"):
+                        if mps_available:
                             # there is no torch.mps.is_available()
                             torch.mps.empty_cache()
 
