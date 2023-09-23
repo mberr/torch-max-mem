@@ -11,9 +11,9 @@ import torch
 
 from torch_max_mem import maximize_memory_utilization
 from torch_max_mem.api import (
-    maximize_memory_utilization_decorator,
     floor_to_nearest_multiple_of,
     is_oom_error,
+    maximize_memory_utilization_decorator,
 )
 
 
