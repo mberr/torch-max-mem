@@ -189,26 +189,53 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 }
 
 
-def warn_for_non_cuda_tensors(*args, **kwargs) -> None:
-    """Check whether any tensor argument is not on GPU."""
-    device_types = {
-        obj.device.type for obj in itertools.chain(args, kwargs.values()) if torch.is_tensor(obj)
-    }
-    if not device_types.issuperset({"cuda"}):
-        logger.warning(
-            "Using maximize_memory_utilization on non-CUDA tensors. This may lead to "
-            f"undocumented crashes due to CPU OOM killer. {device_types=}",
-        )
+def create_tensor_checker(warn_for_devices: Collection[str] | None = None) -> Callable:
+    """
+    Create a function that warns when tensors are on any of the given devices.
 
+    :param warn_for_devices:
+        warn for these devices. Defaults to `cpu`.  This is useful for, e.g., `cpu` since CPU OOM errors may
+        trigger the operating system's OOM killer to directly terminate the process without any catchable exceptions.
 
-def no_warning(*args, **kwargs) -> None:
-    """Skip checking whether any tensor argument is not on GPU."""
+    :return:
+        a function that checks its parameters for tensors of the given devices and emits a warning if it finds such.
+    """
+    if warn_for_devices is None:
+        warn_for_devices = {"cpu"}
+    warn_for_devices = frozenset(warn_for_devices)
+    logger.debug(
+        f"Will warn about running memory utilization maximization on tensors on these devices: {warn_for_devices}",
+    )
+
+    # short-circuit
+    if not warn_for_devices:
+
+        def no_check(*args, **kwargs) -> None:
+            """Do not perform any checks."""
+
+        return no_check
+
+    def check_tensors(*args, **kwargs) -> None:
+        """Check whether any tensor argument is on a dangerous device."""
+        device_types = {
+            obj.device.type
+            for obj in itertools.chain(args, kwargs.values())
+            if torch.is_tensor(obj)
+        }
+
+        if device_types.intersection(warn_for_devices):
+            logger.warning(
+                "Using maximize_memory_utilization on non-CUDA tensors. This may lead to "
+                f"undocumented crashes due to CPU OOM killer. {device_types=}",
+            )
+
+    return check_tensors
 
 
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
-    non_gpu_warning: bool = True,
+    warn_for_devices: Collection[str] | None = None,
 ) -> Callable[[Callable[..., R]], Callable[..., Tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
@@ -217,14 +244,13 @@ def maximize_memory_utilization_decorator(
         The parameter name.
     :param q:
         Prefer multiples of q as size.
-    :param non_gpu_warning:
-        Whether to check the input for non GPU tensors; while GPU OOM emits catchable errors, CPU OOM may directly kill
-        the process.
+    :param warn_for_devices:
+        Warn when encountering tensors on these devices, cf. :meth:`create_tensor_checker`.
 
     :return:
         A decorator for functions.
     """
-    maybe_warn = warn_for_non_cuda_tensors if non_gpu_warning else no_warning
+    maybe_warn = create_tensor_checker(warn_for_devices=warn_for_devices)
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
@@ -350,7 +376,7 @@ class MemoryUtilizationMaximizer:
         self,
         parameter_name: str | Sequence[str] = "batch_size",
         q: int | Sequence[int] = 32,
-        non_gpu_warning: bool = True,
+        warn_for_devices: Collection[str] | None = None,
         hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
         keys: Optional[str] = None,
     ) -> None:
@@ -361,16 +387,15 @@ class MemoryUtilizationMaximizer:
             The parameter name.
         :param q:
             Prefer multiples of q as size.
-        :param non_gpu_warning:
-            Whether to check the input for non GPU tensors; while GPU OOM emits catchable errors, CPU OOM may directly
-            kill the process.
+        :param warn_for_devices:
+            Warn when encountering tensors on these devices, cf. :meth:`create_tensor_checker`.
         :param hasher:
             a hashing function for separate parameter values depending on hash value; if None, use the same for all
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
         """
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
-        self.non_gpu_warning = non_gpu_warning
+        self.warn_for_devices = warn_for_devices
         self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
         # fixme: we do not want to include the parameter names into the hash?
         if hasher is None:
@@ -382,7 +407,7 @@ class MemoryUtilizationMaximizer:
         wrapped = maximize_memory_utilization_decorator(
             parameter_name=self.parameter_names,
             q=self.qs,
-            non_gpu_warning=self.non_gpu_warning,
+            warn_for_devices=self.warn_for_devices,
         )(func)
         signature = inspect.signature(func)
 
