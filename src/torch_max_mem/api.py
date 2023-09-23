@@ -347,14 +347,33 @@ def maximize_memory_utilization_decorator(
 class KeyHasher:
     """A hasher based on (a subset of) keys."""
 
-    def __init__(self, keys: Optional[Collection[str]]) -> None:
+    @staticmethod
+    def normalize_keys(keys: Collection[str] | str | None) -> Collection[str]:
+        """
+        Normalize keys to be a collection of strings.
+
+        :param keys:
+            the keys
+
+        :return:
+            - if keys is None, the empty list
+            - if keys is a string, a singleton list
+            - else the keys
+        """
+        if keys is None:
+            return []
+        if isinstance(keys, str):
+            return [keys]
+        return keys
+
+    def __init__(self, keys: Collection[str] | str | None) -> None:
         """
         Initialize the hasher.
 
         :param keys:
             the keys whose associated values should be used for hashing
         """
-        self.keys = keys or []
+        self.keys = self.normalize_keys(keys)
 
     def __call__(self, kwargs: Mapping[str, Any]) -> int:
         """
@@ -378,7 +397,7 @@ class MemoryUtilizationMaximizer:
         q: int | Sequence[int] = 32,
         safe_devices: Collection[str] | None = None,
         hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
-        keys: Optional[str] = None,
+        keys: Collection[str] | str | None = None,
     ) -> None:
         """
         Initialize the stateful maximizer.
@@ -397,8 +416,14 @@ class MemoryUtilizationMaximizer:
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
         self.safe_devices = safe_devices
         self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
-        # fixme: we do not want to include the parameter names into the hash?
         if hasher is None:
+            keys = KeyHasher.normalize_keys(keys)
+            intersection = set(keys).intersection(self.parameter_names)
+            if intersection:
+                logger.warning(
+                    f"{intersection=} are contained in the hashing keys *and* the parameter names; "
+                    f"likely you want to remove {intersection} from hashing keys.",
+                )
             hasher = KeyHasher(keys=keys)
         self.hasher = hasher
 
