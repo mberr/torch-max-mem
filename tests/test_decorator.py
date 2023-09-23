@@ -130,6 +130,8 @@ def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
     assert r <= x
     # check multiple of q if possible
     assert r < q or (r % q == 0)
+    # check maximality
+    assert r + q > x
 
 
 @pytest.mark.parametrize(
