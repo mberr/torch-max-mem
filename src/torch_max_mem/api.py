@@ -127,7 +127,10 @@ def determine_default_max_value(
     if parameter_name not in signature.parameters.keys():
         raise ValueError(f"{func} does not have a parameter {parameter_name}.")
     _parameter = signature.parameters[parameter_name]
-    if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation != int:
+    if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation not in (
+        int,
+        "int",
+    ):
         logger.warning(
             f"Memory utilization maximization is written for integer parameters, but the "
             f"{parameter_name} is annotated as {_parameter.annotation}; casting to int",
