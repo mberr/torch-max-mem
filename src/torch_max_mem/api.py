@@ -186,6 +186,8 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
     "CUDA out of memory.",
     # cf. https://github.com/pytorch/pytorch/issues/51871
     "nonzero is not supported for tensors with more than INT_MAX elements",
+    # cf. https://discuss.pytorch.org/t/runtime-error-invalid-buffer-size-when-calculating-cosine-similarity/152088
+    "Invalid buffer size: ",
 }
 
 
