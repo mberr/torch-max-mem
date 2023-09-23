@@ -196,6 +196,13 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 }
 
 
+def iter_tensor_devices(*args, **kwargs) -> Iterable[torch.device]:
+    """Iterate over tensors' devices (may contain duplicates)."""
+    for obj in itertools.chain(args, kwargs.values()):
+        if torch.is_tensor(obj):
+            yield obj.device
+
+
 def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callable:
     """
     Create a function that warns when tensors are on any device that is not considered safe.
@@ -217,11 +224,7 @@ def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callab
 
     def check_tensors(*args, **kwargs) -> None:
         """Check whether any tensor argument is on a dangerous device."""
-        device_types = {
-            obj.device.type
-            for obj in itertools.chain(args, kwargs.values())
-            if torch.is_tensor(obj)
-        }
+        device_types = {device.type for device in iter_tensor_devices(*args, **kwargs)}
 
         if not safe_devices.issuperset(device_types):
             logger.warning(
@@ -231,13 +234,6 @@ def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callab
             )
 
     return check_tensors
-
-
-def iter_tensor_devices(*args, **kwargs) -> Iterable[torch.device]:
-    """Iterate over tensors' devices (may contain duplicates)."""
-    for obj in itertools.chain(args, kwargs.values()):
-        if torch.is_tensor(obj):
-            yield obj.device
 
 
 def maximize_memory_utilization_decorator(
