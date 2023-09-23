@@ -182,8 +182,8 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
     # An error that occurs because the input in CUDA is too big.
     # cf. https://discuss.pytorch.org/t/cudnn-status-not-supported-this-error-may-appear-if-you-passed-in-a-non-contiguous-input/  # noqa: E501
     "cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.",
-    # note: this should catch "MPS backend out of memory" as well as the torch <2.0 "CUDA out of memory"
-    "out of memory",
+    # The torch < 2.0 way of OOM errors
+    "CUDA out of memory.",
     # cf. https://github.com/pytorch/pytorch/issues/51871
     "nonzero is not supported for tensors with more than INT_MAX elements",
     # cf. https://discuss.pytorch.org/t/runtime-error-invalid-buffer-size-when-calculating-cosine-similarity/152088
