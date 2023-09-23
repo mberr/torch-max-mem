@@ -10,7 +10,11 @@ import pytest
 import torch
 
 from torch_max_mem import maximize_memory_utilization
-from torch_max_mem.api import maximize_memory_utilization_decorator, floor_to_nearest_multiple_of
+from torch_max_mem.api import (
+    maximize_memory_utilization_decorator,
+    floor_to_nearest_multiple_of,
+    is_oom_error,
+)
 
 
 def knn(x, y, batch_size, k: int = 3):
@@ -126,3 +130,30 @@ def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
     assert r <= x
     # check multiple of q if possible
     assert r < q or (r % q == 0)
+
+
+@pytest.mark.parametrize(
+    "error,exp",
+    [
+        # base cases
+        (NameError(), False),
+        # CUDA
+        (torch.cuda.OutOfMemoryError(), True),
+        # MPS
+        # cf. https://github.com/mberr/torch-max-mem/issues/14
+        (RuntimeError("Invalid buffer size: 74.51 GB"), True),
+        (
+            RuntimeError(
+                "MPS backend out of memory (MPS allocated: 119.30 MB, other allocations: 43.18 GB, max allowed: "
+                "36.27 GB). Tried to allocate 4.76 MB on private pool. Use PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 "
+                "to disable upper limit for memory allocations (may cause system failure).",
+            ),
+            True,
+        ),
+        # cf. https://github.com/mberr/torch-max-mem/pull/15
+        (RuntimeError("selected index k out of range"), False),
+    ],
+)
+def test_oom_error_detection(error: BaseException, exp: bool) -> None:
+    """Test OOM error detection."""
+    assert is_oom_error(error) is exp
