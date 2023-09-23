@@ -56,13 +56,13 @@ from typing import (
     Any,
     Callable,
     Collection,
+    Iterable,
     Mapping,
     MutableMapping,
     Optional,
     Sequence,
     Tuple,
     TypeVar,
-    Iterable,
 )
 
 import torch
