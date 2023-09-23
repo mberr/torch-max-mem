@@ -370,7 +370,8 @@ def maximize_memory_utilization_decorator(
                             raise error
 
                         # clear cache
-                        torch.cuda.empty_cache()
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
 
                         # reduce parameter
                         logger.info(f"Execution failed with {p_kwargs=}")
