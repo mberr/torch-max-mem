@@ -220,18 +220,18 @@ def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callab
     """
     if safe_devices is None:
         safe_devices = {"cuda"}
-    safe_devices = frozenset(safe_devices)
+    safe_devices_set = frozenset(safe_devices)
     logger.debug(
-        f"Will warn about running memory utilization maximization on tensors on devices other than {safe_devices}",
+        f"Will warn about running memory utilization maximization on tensors on devices other than {safe_devices_set}",
     )
 
     def check_tensors(*args, **kwargs) -> None:
         """Check whether any tensor argument is on a dangerous device."""
         device_types = {device.type for device in iter_tensor_devices(*args, **kwargs)}
 
-        if not safe_devices.issuperset(device_types):
+        if not safe_devices_set.issuperset(device_types):
             logger.warning(
-                f"Encountered tensors on {device_types=} while only {sorted(safe_devices)} are considered safe for "
+                f"Encountered tensors on {device_types=} while only {sorted(safe_devices_set)} are considered safe for "
                 f"automatic memory utilization maximization. This may lead to undocumented crashes (but can be safe, "
                 f"too).",
             )
