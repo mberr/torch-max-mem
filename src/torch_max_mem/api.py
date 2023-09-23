@@ -306,6 +306,9 @@ def maximize_memory_utilization_decorator(
             ]
             i = 0
 
+            # store the last error, so we can have a nice traceback for further inspection
+            last_error: BaseException | None = None
+
             while i < len(max_values):
                 while max_values[i] > 0:
                     p_kwargs = {
@@ -328,16 +331,23 @@ def maximize_memory_utilization_decorator(
 
                         # clear cache
                         torch.cuda.empty_cache()
+
+                        # reduce parameter
                         logger.info(f"Execution failed with {p_kwargs=}")
                         max_values[i] //= 2
+
+                        # ensure multiple of qs while possible
                         if max_values[i] > qs[i]:
                             max_values[i] = max_values[i] // qs[i] * qs[i]
+
+                        # update last error
+                        last_error = error
                 # we lowered the current parameter to 1, but still see memory issues; continue with the next in line...
                 max_values[i] = 1
                 i += 1
             raise MemoryError(
                 f"Execution did not even succeed with {parameter_names} all equal to 1."
-            )
+            ) from last_error
 
         return wrapper_maximize_memory_utilization
 
