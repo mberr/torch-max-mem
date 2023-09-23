@@ -309,6 +309,12 @@ def maximize_memory_utilization_decorator(
                 # we lowered the current parameter to 1, but still see memory issues; continue with the next in line...
                 max_values[i] = 1
                 i += 1
+            # todo: wait for other PR to get device
+            devices: Collection[torch.device] = ...
+            for device in {d for d in devices if d.type == "cuda"}:
+                logger.debug(
+                    f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}"
+                )
             raise MemoryError(
                 f"Execution did not even succeed with {parameter_names} all equal to 1."
             )
