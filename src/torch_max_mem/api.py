@@ -372,6 +372,9 @@ def maximize_memory_utilization_decorator(
                         # clear cache
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
+                        if hasattr(torch, "mps"):
+                            # there is no torch.mps.is_available()
+                            torch.mps.empty_cache()
 
                         # reduce parameter
                         logger.info(f"Execution failed with {p_kwargs=}")
