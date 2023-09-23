@@ -236,6 +236,24 @@ def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callab
     return check_tensors
 
 
+def floor_to_nearest_multiple_of(x: int, q: int) -> int:
+    """
+    Try to ensure that x is a multiple of q.
+
+    :param x:
+        the input value
+    :param q:
+        the desired base factor
+
+    :return:
+        x if x is smaller than q, otherwise, the largest multiple of q that is smaller than x
+    """
+    if x <= q:
+        return x
+    # note: the brackets are for readability only
+    return (x // q) * q
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
@@ -338,11 +356,7 @@ def maximize_memory_utilization_decorator(
 
                         # reduce parameter
                         logger.info(f"Execution failed with {p_kwargs=}")
-                        max_values[i] //= 2
-
-                        # ensure multiple of qs while possible
-                        if max_values[i] > qs[i]:
-                            max_values[i] = max_values[i] // qs[i] * qs[i]
+                        max_values[i] = floor_to_nearest_multiple_of(x=max_values[i] // 2, q=qs[i])
 
                         # update last error
                         last_error = error
