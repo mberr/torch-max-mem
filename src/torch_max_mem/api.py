@@ -224,8 +224,9 @@ def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callab
 
         if not safe_devices.issuperset(device_types):
             logger.warning(
-                f"Encountered tensors on {device_types=} while only {safe_devices=} are considered safe for automatic"
-                f"memory utilization maximization. This may lead to undocumented crashes (but can be safe, too).",
+                f"Encountered tensors on {device_types=} while only {sorted(safe_devices)} are considered safe for "
+                f"automatic memory utilization maximization. This may lead to undocumented crashes (but can be safe, "
+                f"too).",
             )
 
     return check_tensors
