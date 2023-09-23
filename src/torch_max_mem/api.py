@@ -254,6 +254,25 @@ def floor_to_nearest_multiple_of(x: int, q: int) -> int:
     return (x // q) * q
 
 
+def is_oom_error(error: BaseException) -> bool:
+    """
+    Return whether the given exception is an out-of-memory (like) exception.
+
+    :param error:
+        the error
+
+    :return:
+        whether it should be handled like an out-of-memory exception
+    """
+    if isinstance(error, torch.cuda.OutOfMemoryError):
+        return True
+    if not isinstance(error, RuntimeError):
+        return False
+    if not error.args:
+        return False
+    return any(infix in error.args[0] for infix in ADDITIONAL_OOM_ERROR_INFIXES)
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
@@ -342,13 +361,8 @@ def maximize_memory_utilization_decorator(
                             tuple(max_values),
                         )
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
-                        # check for additional OOM error types
-                        if not isinstance(error, torch.cuda.OutOfMemoryError) and (
-                            not error.args
-                            or not any(
-                                infix in error.args[0] for infix in ADDITIONAL_OOM_ERROR_INFIXES
-                            )
-                        ):
+                        # raise errors unrelated to out-of-memory
+                        if not is_oom_error(error):
                             raise error
 
                         # clear cache
