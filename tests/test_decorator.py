@@ -10,7 +10,7 @@ import pytest
 import torch
 
 from torch_max_mem import maximize_memory_utilization
-from torch_max_mem.api import maximize_memory_utilization_decorator
+from torch_max_mem.api import maximize_memory_utilization_decorator, floor_to_nearest_multiple_of
 
 
 def knn(x, y, batch_size, k: int = 3):
@@ -114,3 +114,15 @@ def test_optimization_multi_level():
         return batch_size, slice_size
 
     assert func() == (1, 8)
+
+
+@pytest.mark.parametrize("x,q", [(15, 4), (3, 4)])
+def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
+    """Test floor_to_nearest_multiple_of."""
+    r = floor_to_nearest_multiple_of(x=x, q=q)
+    # check type
+    assert isinstance(r, int)
+    # check flooring
+    assert r <= x
+    # check multiple of q if possible
+    assert r < q or (r % q == 0)
