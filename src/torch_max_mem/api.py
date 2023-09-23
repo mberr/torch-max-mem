@@ -188,6 +188,10 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
     "nonzero is not supported for tensors with more than INT_MAX elements",
     # cf. https://discuss.pytorch.org/t/runtime-error-invalid-buffer-size-when-calculating-cosine-similarity/152088
     "Invalid buffer size: ",
+    # MPS OOM error
+    "MPS backend out of memory",
+    # CPU OOM error
+    "DefaultCPUAllocator: not enough memory:",
 }
 
 
