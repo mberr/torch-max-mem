@@ -189,10 +189,26 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 }
 
 
+def warn_for_non_cuda_tensors(*args, **kwargs) -> None:
+    """Check whether any tensor argument is not on GPU."""
+    device_types = {
+        obj.device.type for obj in itertools.chain(args, kwargs.values()) if torch.is_tensor(obj)
+    }
+    if not device_types.issuperset({"cuda"}):
+        logger.warning(
+            "Using maximize_memory_utilization on non-CUDA tensors. This may lead to "
+            f"undocumented crashes due to CPU OOM killer. {device_types=}",
+        )
+
+
+def no_warning(*args, **kwargs) -> None:
+    """Skip checking whether any tensor argument is not on GPU."""
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
-    cpu_warning: bool = True,
+    non_gpu_warning: bool = True,
 ) -> Callable[[Callable[..., R]], Callable[..., Tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
@@ -201,30 +217,14 @@ def maximize_memory_utilization_decorator(
         The parameter name.
     :param q:
         Prefer multiples of q as size.
-    :param cpu_warning:
-        Whether to check the input for CPU tensors and warn about potential CPU OOM problems.
+    :param non_gpu_warning:
+        Whether to check the input for non GPU tensors; while GPU OOM emits catchable errors, CPU OOM may directly kill
+        the process.
 
     :return:
         A decorator for functions.
     """
-    if cpu_warning:
-
-        def check_for_cpu_tensors(*args, **kwargs):
-            """Check whether any tensor argument is on CPU."""
-            if any(
-                (torch.is_tensor(obj) and obj.device.type == "cpu")
-                for obj in itertools.chain(args, kwargs.values())
-            ):
-                logger.warning(
-                    "Using maximize_memory_utilization on non-CUDA tensors. This may lead to "
-                    "undocumented crashes due to CPU OOM killer.",
-                )
-
-    else:
-
-        def check_for_cpu_tensors(*args, **kwargs):
-            """Skip checking whether any tensor argument is on CPU."""
-
+    maybe_warn = warn_for_non_cuda_tensors if non_gpu_warning else no_warning
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
@@ -239,7 +239,7 @@ def maximize_memory_utilization_decorator(
         :return:
             The decorated function.
         """
-        # Input validation
+        # Input validation, and extraction of default maximum values
         signature = inspect.signature(func)
         default_max_values = {
             name: determine_default_max_value(func=func, parameter_name=name, signature=signature)
@@ -264,10 +264,10 @@ def maximize_memory_utilization_decorator(
             :raises RuntimeError:
                 if a runtime error which is unrelated to known OOM errors occurred
             """
-            check_for_cpu_tensors(*args, **kwargs)
+            maybe_warn(*args, **kwargs)
             bound_arguments = signature.bind(*args, **kwargs)
             bound_arguments.apply_defaults()
-            # determine max values
+            # determine actual max values
             max_values = [
                 determine_max_value(
                     bound_arguments=bound_arguments,
@@ -350,7 +350,7 @@ class MemoryUtilizationMaximizer:
         self,
         parameter_name: str | Sequence[str] = "batch_size",
         q: int | Sequence[int] = 32,
-        cpu_warning: bool = True,
+        non_gpu_warning: bool = True,
         hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
         keys: Optional[str] = None,
     ) -> None:
@@ -361,15 +361,16 @@ class MemoryUtilizationMaximizer:
             The parameter name.
         :param q:
             Prefer multiples of q as size.
-        :param cpu_warning:
-            Whether to check the input for CPU tensors and warn about potential CPU OOM problems.
+        :param non_gpu_warning:
+            Whether to check the input for non GPU tensors; while GPU OOM emits catchable errors, CPU OOM may directly
+            kill the process.
         :param hasher:
             a hashing function for separate parameter values depending on hash value; if None, use the same for all
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
         """
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
-        self.cpu_warning = cpu_warning
+        self.non_gpu_warning = non_gpu_warning
         self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
         # fixme: we do not want to include the parameter names into the hash?
         if hasher is None:
@@ -381,7 +382,7 @@ class MemoryUtilizationMaximizer:
         wrapped = maximize_memory_utilization_decorator(
             parameter_name=self.parameter_names,
             q=self.qs,
-            cpu_warning=self.cpu_warning,
+            non_gpu_warning=self.non_gpu_warning,
         )(func)
         signature = inspect.signature(func)
 
