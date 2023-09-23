@@ -189,31 +189,24 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 }
 
 
-def create_tensor_checker(warn_for_devices: Collection[str] | None = None) -> Callable:
+def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callable:
     """
-    Create a function that warns when tensors are on any of the given devices.
+    Create a function that warns when tensors are on any device that is not considered safe.
 
-    :param warn_for_devices:
-        warn for these devices. Defaults to `cpu`.  This is useful for, e.g., `cpu` since CPU OOM errors may
-        trigger the operating system's OOM killer to directly terminate the process without any catchable exceptions.
+    :param safe_devices:
+        these devices are considered safe, i.e., the program will receive meaningful exceptions to handle out of memory
+        (OOM) issues. For example for CPU, OOM errors may trigger the operating system's OOM killer to directly
+        terminate the process without any catchable exceptions. Defaults to ``{"cuda"}``.
 
     :return:
-        a function that checks its parameters for tensors of the given devices and emits a warning if it finds such.
+        a function that checks its parameters for tensors and emits a warning if any is on a non-safe device.
     """
-    if warn_for_devices is None:
-        warn_for_devices = {"cpu"}
-    warn_for_devices = frozenset(warn_for_devices)
+    if safe_devices is None:
+        safe_devices = {"cuda"}
+    safe_devices = frozenset(safe_devices)
     logger.debug(
-        f"Will warn about running memory utilization maximization on tensors on these devices: {warn_for_devices}",
+        f"Will warn about running memory utilization maximization on tensors on devices other than {safe_devices}",
     )
-
-    # short-circuit
-    if not warn_for_devices:
-
-        def no_check(*args, **kwargs) -> None:
-            """Do not perform any checks."""
-
-        return no_check
 
     def check_tensors(*args, **kwargs) -> None:
         """Check whether any tensor argument is on a dangerous device."""
@@ -223,10 +216,10 @@ def create_tensor_checker(warn_for_devices: Collection[str] | None = None) -> Ca
             if torch.is_tensor(obj)
         }
 
-        if device_types.intersection(warn_for_devices):
+        if not safe_devices.issuperset(device_types):
             logger.warning(
-                "Using maximize_memory_utilization on non-CUDA tensors. This may lead to "
-                f"undocumented crashes due to CPU OOM killer. {device_types=}",
+                f"Encountered tensors on {device_types=} while only {safe_devices=} are considered safe for automatic"
+                f"memory utilization maximization. This may lead to undocumented crashes (but can be safe, too).",
             )
 
     return check_tensors
@@ -235,7 +228,7 @@ def create_tensor_checker(warn_for_devices: Collection[str] | None = None) -> Ca
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
-    warn_for_devices: Collection[str] | None = None,
+    safe_devices: Collection[str] | None = None,
 ) -> Callable[[Callable[..., R]], Callable[..., Tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
@@ -244,13 +237,13 @@ def maximize_memory_utilization_decorator(
         The parameter name.
     :param q:
         Prefer multiples of q as size.
-    :param warn_for_devices:
-        Warn when encountering tensors on these devices, cf. :meth:`create_tensor_checker`.
+    :param safe_devices:
+        These devices are considered safe to run maximization on, cf. :meth:`create_tensor_checker`.
 
     :return:
         A decorator for functions.
     """
-    maybe_warn = create_tensor_checker(warn_for_devices=warn_for_devices)
+    maybe_warn = create_tensor_checker(safe_devices=safe_devices)
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
@@ -376,7 +369,7 @@ class MemoryUtilizationMaximizer:
         self,
         parameter_name: str | Sequence[str] = "batch_size",
         q: int | Sequence[int] = 32,
-        warn_for_devices: Collection[str] | None = None,
+        safe_devices: Collection[str] | None = None,
         hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
         keys: Optional[str] = None,
     ) -> None:
@@ -387,15 +380,15 @@ class MemoryUtilizationMaximizer:
             The parameter name.
         :param q:
             Prefer multiples of q as size.
-        :param warn_for_devices:
-            Warn when encountering tensors on these devices, cf. :meth:`create_tensor_checker`.
+        :param safe_devices:
+            These devices are considered safe to run maximization on, cf. :meth:`create_tensor_checker`.
         :param hasher:
             a hashing function for separate parameter values depending on hash value; if None, use the same for all
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
         """
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
-        self.warn_for_devices = warn_for_devices
+        self.safe_devices = safe_devices
         self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
         # fixme: we do not want to include the parameter names into the hash?
         if hasher is None:
@@ -407,7 +400,7 @@ class MemoryUtilizationMaximizer:
         wrapped = maximize_memory_utilization_decorator(
             parameter_name=self.parameter_names,
             q=self.qs,
-            warn_for_devices=self.warn_for_devices,
+            safe_devices=self.safe_devices,
         )(func)
         signature = inspect.signature(func)
 
