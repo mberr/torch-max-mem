@@ -56,6 +56,7 @@ from typing import (
     Any,
     Callable,
     Collection,
+    Iterable,
     Mapping,
     MutableMapping,
     Optional,
@@ -232,6 +233,13 @@ def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callab
     return check_tensors
 
 
+def iter_tensor_devices(*args, **kwargs) -> Iterable[torch.device]:
+    """Iterate over tensors' devices (may contain duplicates)."""
+    for obj in itertools.chain(args, kwargs.values()):
+        if torch.is_tensor(obj):
+            yield obj.device
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
@@ -345,6 +353,11 @@ def maximize_memory_utilization_decorator(
                 # we lowered the current parameter to 1, but still see memory issues; continue with the next in line...
                 max_values[i] = 1
                 i += 1
+            # log memory summary for each CUDA device before raising memory error
+            for device in {d for d in iter_tensor_devices(*args, **kwargs) if d.type == "cuda"}:
+                logger.debug(
+                    f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}"
+                )
             raise MemoryError(
                 f"Execution did not even succeed with {parameter_names} all equal to 1."
             ) from last_error
