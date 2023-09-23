@@ -294,11 +294,9 @@ def maximize_memory_utilization_decorator(
                     p_kwargs = {
                         name: max_value for name, max_value in zip(parameter_names, max_values)
                     }
+                    combined_kwargs: P.kwargs = {**p_kwargs, **bound_arguments.kwargs}
                     try:
-                        return (
-                            func(*bound_arguments.args, **p_kwargs, **bound_arguments.kwargs),
-                            tuple(max_values),
-                        )
+                        return func(*bound_arguments.args, **combined_kwargs), tuple(max_values)
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
                         # check for additional OOM error types
                         if not isinstance(error, torch.cuda.OutOfMemoryError) and (
@@ -434,7 +432,7 @@ class MemoryUtilizationMaximizer:
                 bound = signature.bind(*args, **kwargs)
                 bound.apply_defaults()
                 # todo: default logic?
-                values = [bound.arguments[name] for name in self.parameter_names]
+                values = tuple(bound.arguments[name] for name in self.parameter_names)
             kwargs.update(zip(self.parameter_names, values))
             result, self.parameter_value[h] = wrapped(*args, **kwargs)
             return result
