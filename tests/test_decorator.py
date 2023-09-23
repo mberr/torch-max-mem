@@ -10,7 +10,11 @@ import pytest
 import torch
 
 from torch_max_mem import maximize_memory_utilization
-from torch_max_mem.api import maximize_memory_utilization_decorator
+from torch_max_mem.api import (
+    floor_to_nearest_multiple_of,
+    is_oom_error,
+    maximize_memory_utilization_decorator,
+)
 
 
 def knn(x, y, batch_size, k: int = 3):
@@ -32,11 +36,12 @@ class TestDecorator(unittest.TestCase):
     """Test the decorator."""
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    rng = torch.random.manual_seed(seed=42)
 
     def test_knn(self):
         """Test consistent results between original and wrapped method."""
-        x = torch.rand(100, 100, device=self.device)
-        y = torch.rand(200, 100, device=self.device)
+        x = torch.rand(100, 100, device=self.device, generator=self.rng)
+        y = torch.rand(200, 100, device=self.device, generator=self.rng)
         for batch_size in [1, 10, x.shape[0]]:
             numpy.testing.assert_array_equal(
                 knn(x, y, batch_size).numpy(),
@@ -45,8 +50,8 @@ class TestDecorator(unittest.TestCase):
 
     def test_knn_stateful(self):
         """Test consistent results between original and wrapped method for stateful wrapper."""
-        x = torch.rand(100, 100, device=self.device)
-        y = torch.rand(200, 100, device=self.device)
+        x = torch.rand(100, 100, device=self.device, generator=self.rng)
+        y = torch.rand(200, 100, device=self.device, generator=self.rng)
         for batch_size in [1, 10, x.shape[0]]:
             numpy.testing.assert_array_equal(
                 knn(x, y, batch_size).numpy(),
@@ -113,3 +118,44 @@ def test_optimization_multi_level():
         return batch_size, slice_size
 
     assert func() == (1, 8)
+
+
+@pytest.mark.parametrize("x,q", [(15, 4), (3, 4)])
+def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
+    """Test floor_to_nearest_multiple_of."""
+    r = floor_to_nearest_multiple_of(x=x, q=q)
+    # check type
+    assert isinstance(r, int)
+    # check flooring
+    assert r <= x
+    # check multiple of q if possible
+    assert r < q or (r % q == 0)
+    # check maximality
+    assert r + q > x
+
+
+@pytest.mark.parametrize(
+    "error,exp",
+    [
+        # base cases
+        (NameError(), False),
+        # CUDA
+        (torch.cuda.OutOfMemoryError(), True),
+        # MPS
+        # cf. https://github.com/mberr/torch-max-mem/issues/14
+        (RuntimeError("Invalid buffer size: 74.51 GB"), True),
+        (
+            RuntimeError(
+                "MPS backend out of memory (MPS allocated: 119.30 MB, other allocations: 43.18 GB, max allowed: "
+                "36.27 GB). Tried to allocate 4.76 MB on private pool. Use PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 "
+                "to disable upper limit for memory allocations (may cause system failure).",
+            ),
+            True,
+        ),
+        # cf. https://github.com/mberr/torch-max-mem/pull/15
+        (RuntimeError("selected index k out of range"), False),
+    ],
+)
+def test_oom_error_detection(error: BaseException, exp: bool) -> None:
+    """Test OOM error detection."""
+    assert is_oom_error(error) is exp

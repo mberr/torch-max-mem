@@ -30,7 +30,7 @@ out-of-memory error occurs.
     def knn(x, y, batch_size, k: int = 3):
         return torch.cat(
             [
-                torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=0, largest=False).indices
+                torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
                 for start in range(0, x.shape[0], batch_size)
             ],
             dim=0,
@@ -52,6 +52,7 @@ import functools
 import inspect
 import itertools
 import logging
+from collections import ChainMap
 from typing import (
     Any,
     Callable,
@@ -189,6 +190,12 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
     "CUDA out of memory.",
     # cf. https://github.com/pytorch/pytorch/issues/51871
     "nonzero is not supported for tensors with more than INT_MAX elements",
+    # cf. https://discuss.pytorch.org/t/runtime-error-invalid-buffer-size-when-calculating-cosine-similarity/152088
+    "Invalid buffer size: ",
+    # MPS OOM error
+    "MPS backend out of memory",
+    # CPU OOM error
+    "DefaultCPUAllocator: not enough memory:",
 }
 
 
@@ -199,10 +206,80 @@ def iter_tensor_devices(*args, **kwargs) -> Iterable[torch.device]:
             yield obj.device
 
 
+def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callable:
+    """
+    Create a function that warns when tensors are on any device that is not considered safe.
+
+    :param safe_devices:
+        these devices are considered safe, i.e., the program will receive meaningful exceptions to handle out of memory
+        (OOM) issues. For example for CPU, OOM errors may trigger the operating system's OOM killer to directly
+        terminate the process without any catchable exceptions. Defaults to ``{"cuda"}``.
+
+    :return:
+        a function that checks its parameters for tensors and emits a warning if any is on a non-safe device.
+    """
+    if safe_devices is None:
+        safe_devices = {"cuda"}
+    safe_devices_set = frozenset(safe_devices)
+    logger.debug(
+        f"Will warn about running memory utilization maximization on tensors on devices other than {safe_devices_set}",
+    )
+
+    def check_tensors(*args, **kwargs) -> None:
+        """Check whether any tensor argument is on a dangerous device."""
+        device_types = {device.type for device in iter_tensor_devices(*args, **kwargs)}
+
+        if not safe_devices_set.issuperset(device_types):
+            logger.warning(
+                f"Encountered tensors on {device_types=} while only {sorted(safe_devices_set)} are considered safe for "
+                f"automatic memory utilization maximization. This may lead to undocumented crashes (but can be safe, "
+                f"too).",
+            )
+
+    return check_tensors
+
+
+def floor_to_nearest_multiple_of(x: int, q: int) -> int:
+    """
+    Try to ensure that x is a multiple of q.
+
+    :param x:
+        the input value
+    :param q:
+        the desired base factor
+
+    :return:
+        x if x is smaller than q, otherwise, the largest multiple of q that is smaller than x
+    """
+    if x <= q:
+        return x
+    # note: the brackets are for readability only
+    return (x // q) * q
+
+
+def is_oom_error(error: BaseException) -> bool:
+    """
+    Return whether the given exception is an out-of-memory (like) exception.
+
+    :param error:
+        the error
+
+    :return:
+        whether it should be handled like an out-of-memory exception
+    """
+    if isinstance(error, torch.cuda.OutOfMemoryError):
+        return True
+    if not isinstance(error, RuntimeError):
+        return False
+    if not error.args:
+        return False
+    return any(infix in error.args[0] for infix in ADDITIONAL_OOM_ERROR_INFIXES)
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
-    cpu_warning: bool = True,
+    safe_devices: Collection[str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, Tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
@@ -211,27 +288,13 @@ def maximize_memory_utilization_decorator(
         The parameter name.
     :param q:
         Prefer multiples of q as size.
-    :param cpu_warning:
-        Whether to check the input for CPU tensors and warn about potential CPU OOM problems.
+    :param safe_devices:
+        These devices are considered safe to run maximization on, cf. :meth:`create_tensor_checker`.
 
     :return:
         A decorator for functions.
     """
-    if cpu_warning:
-
-        def check_for_cpu_tensors(*args, **kwargs):
-            """Check whether any tensor argument is on CPU."""
-            if any(device.type == "cpu" for device in iter_tensor_devices(*args, **kwargs)):
-                logger.warning(
-                    "Using maximize_memory_utilization on non-CUDA tensors. This may lead to "
-                    "undocumented crashes due to CPU OOM killer.",
-                )
-
-    else:
-
-        def check_for_cpu_tensors(*args, **kwargs):
-            """Skip checking whether any tensor argument is on CPU."""
-
+    maybe_warn = create_tensor_checker(safe_devices=safe_devices)
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
@@ -246,7 +309,7 @@ def maximize_memory_utilization_decorator(
         :return:
             The decorated function.
         """
-        # Input validation
+        # Input validation, and extraction of default maximum values
         signature = inspect.signature(func)
         default_max_values = {
             name: determine_default_max_value(func=func, parameter_name=name, signature=signature)
@@ -273,10 +336,10 @@ def maximize_memory_utilization_decorator(
             :raises RuntimeError:
                 if a runtime error which is unrelated to known OOM errors occurred
             """
-            check_for_cpu_tensors(*args, **kwargs)
+            maybe_warn(*args, **kwargs)
             bound_arguments = signature.bind(*args, **kwargs)
             bound_arguments.apply_defaults()
-            # determine max values
+            # determine actual max values
             max_values = [
                 determine_max_value(
                     bound_arguments=bound_arguments,
@@ -289,30 +352,37 @@ def maximize_memory_utilization_decorator(
             ]
             i = 0
 
+            # store the last error, so we can have a nice traceback for further inspection
+            last_error: BaseException | None = None
+
             while i < len(max_values):
                 while max_values[i] > 0:
                     p_kwargs = {
                         name: max_value for name, max_value in zip(parameter_names, max_values)
                     }
-                    combined_kwargs: P.kwargs = {**p_kwargs, **bound_arguments.kwargs}
+                    # note: bound_arguments.kwargs is typed as dict, but (silently) immutable (=ignoring updates)...
+                    combined_kwargs: P.kwargs = ChainMap(p_kwargs, bound_arguments.kwargs)
                     try:
                         return func(*bound_arguments.args, **combined_kwargs), tuple(max_values)
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
-                        # check for additional OOM error types
-                        if not isinstance(error, torch.cuda.OutOfMemoryError) and (
-                            not error.args
-                            or not any(
-                                infix in error.args[0] for infix in ADDITIONAL_OOM_ERROR_INFIXES
-                            )
-                        ):
+                        # raise errors unrelated to out-of-memory
+                        if not is_oom_error(error):
                             raise error
 
                         # clear cache
-                        torch.cuda.empty_cache()
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                        # https://pytorch.org/docs/stable/notes/mps.html
+                        if torch.backends.mps.is_available():
+                            # there is no torch.mps.is_available()
+                            torch.mps.empty_cache()
+
+                        # reduce parameter
                         logger.info(f"Execution failed with {p_kwargs=}")
-                        max_values[i] //= 2
-                        if max_values[i] > qs[i]:
-                            max_values[i] = max_values[i] // qs[i] * qs[i]
+                        max_values[i] = floor_to_nearest_multiple_of(x=max_values[i] // 2, q=qs[i])
+
+                        # update last error
+                        last_error = error
                 # we lowered the current parameter to 1, but still see memory issues; continue with the next in line...
                 max_values[i] = 1
                 i += 1
@@ -323,7 +393,7 @@ def maximize_memory_utilization_decorator(
                 )
             raise MemoryError(
                 f"Execution did not even succeed with {parameter_names} all equal to 1."
-            )
+            ) from last_error
 
         return wrapper_maximize_memory_utilization
 
@@ -381,7 +451,7 @@ class MemoryUtilizationMaximizer:
         self,
         parameter_name: str | Sequence[str] = "batch_size",
         q: int | Sequence[int] = 32,
-        cpu_warning: bool = True,
+        safe_devices: Collection[str] | None = None,
         hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
         keys: Collection[str] | str | None = None,
     ) -> None:
@@ -392,15 +462,15 @@ class MemoryUtilizationMaximizer:
             The parameter name.
         :param q:
             Prefer multiples of q as size.
-        :param cpu_warning:
-            Whether to check the input for CPU tensors and warn about potential CPU OOM problems.
+        :param safe_devices:
+            These devices are considered safe to run maximization on, cf. :meth:`create_tensor_checker`.
         :param hasher:
             a hashing function for separate parameter values depending on hash value; if None, use the same for all
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
         """
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
-        self.cpu_warning = cpu_warning
+        self.safe_devices = safe_devices
         self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
         if hasher is None:
             keys = KeyHasher.normalize_keys(keys)
@@ -418,7 +488,7 @@ class MemoryUtilizationMaximizer:
         wrapped = maximize_memory_utilization_decorator(
             parameter_name=self.parameter_names,
             q=self.qs,
-            cpu_warning=self.cpu_warning,
+            safe_devices=self.safe_devices,
         )(func)
         signature = inspect.signature(func)
 

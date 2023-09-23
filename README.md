@@ -62,7 +62,7 @@ from torch_max_mem import maximize_memory_utilization
 def knn(x, y, batch_size, k: int = 3):
     return torch.cat(
         [
-            torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=0, largest=False).indices
+            torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
             for start in range(0, x.shape[0], batch_size)
         ],
         dim=0,
