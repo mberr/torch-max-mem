@@ -62,6 +62,7 @@ from typing import (
     Sequence,
     Tuple,
     TypeVar,
+    Iterable,
 )
 
 import torch
@@ -189,6 +190,13 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 }
 
 
+def iter_tensor_devices(*args, **kwargs) -> Iterable[torch.device]:
+    """Iterate over tensors' devices (may contain duplicates)."""
+    for obj in itertools.chain(args, kwargs.values()):
+        if torch.is_tensor(obj):
+            yield obj.device
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
@@ -211,10 +219,7 @@ def maximize_memory_utilization_decorator(
 
         def check_for_cpu_tensors(*args, **kwargs):
             """Check whether any tensor argument is on CPU."""
-            if any(
-                (torch.is_tensor(obj) and obj.device.type == "cpu")
-                for obj in itertools.chain(args, kwargs.values())
-            ):
+            if any(device.type == "cpu" for device in iter_tensor_devices(*args, **kwargs)):
                 logger.warning(
                     "Using maximize_memory_utilization on non-CUDA tensors. This may lead to "
                     "undocumented crashes due to CPU OOM killer.",
@@ -309,9 +314,8 @@ def maximize_memory_utilization_decorator(
                 # we lowered the current parameter to 1, but still see memory issues; continue with the next in line...
                 max_values[i] = 1
                 i += 1
-            # todo: wait for other PR to get device
-            devices: Collection[torch.device] = ...
-            for device in {d for d in devices if d.type == "cuda"}:
+            # log memory summary for each CUDA device before raising memory error
+            for device in {d for d in iter_tensor_devices(*args, **kwargs) if d.type == "cuda"}:
                 logger.debug(
                     f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}"
                 )
