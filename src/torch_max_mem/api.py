@@ -52,7 +52,6 @@ import functools
 import inspect
 import itertools
 import logging
-from collections import ChainMap
 from typing import (
     Any,
     Callable,
@@ -363,10 +362,12 @@ def maximize_memory_utilization_decorator(
                     p_kwargs = {
                         name: max_value for name, max_value in zip(parameter_names, max_values)
                     }
-                    # note: bound_arguments.kwargs is typed as dict, but (silently) immutable (=ignoring updates)...
-                    combined_kwargs: P.kwargs = ChainMap(p_kwargs, bound_arguments.kwargs)
+                    # note: changes to arguments apply to both, .args and .kwargs
+                    bound_arguments.arguments.update(p_kwargs)
                     try:
-                        return func(*bound_arguments.args, **combined_kwargs), tuple(max_values)
+                        return func(*bound_arguments.args, **bound_arguments.kwargs), tuple(
+                            max_values
+                        )
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
                         # raise errors unrelated to out-of-memory
                         if not is_oom_error(error):
