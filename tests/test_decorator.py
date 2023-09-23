@@ -32,11 +32,12 @@ class TestDecorator(unittest.TestCase):
     """Test the decorator."""
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    rng = torch.random.manual_seed(seed=42)
 
     def test_knn(self):
         """Test consistent results between original and wrapped method."""
-        x = torch.rand(100, 100, device=self.device)
-        y = torch.rand(200, 100, device=self.device)
+        x = torch.rand(100, 100, device=self.device, generator=self.rng)
+        y = torch.rand(200, 100, device=self.device, generator=self.rng)
         for batch_size in [1, 10, x.shape[0]]:
             numpy.testing.assert_array_equal(
                 knn(x, y, batch_size).numpy(),
@@ -45,8 +46,8 @@ class TestDecorator(unittest.TestCase):
 
     def test_knn_stateful(self):
         """Test consistent results between original and wrapped method for stateful wrapper."""
-        x = torch.rand(100, 100, device=self.device)
-        y = torch.rand(200, 100, device=self.device)
+        x = torch.rand(100, 100, device=self.device, generator=self.rng)
+        y = torch.rand(200, 100, device=self.device, generator=self.rng)
         for batch_size in [1, 10, x.shape[0]]:
             numpy.testing.assert_array_equal(
                 knn(x, y, batch_size).numpy(),
