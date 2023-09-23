@@ -110,7 +110,7 @@ def upgrade_to_sequence(
 
 
 def determine_default_max_value(
-    func: Callable, parameter_name: str, signature: inspect.Signature
+    func: Callable[..., Any], parameter_name: str, signature: inspect.Signature
 ) -> int | None:
     """
     Determine the default maximum value based on the signature.
@@ -146,10 +146,10 @@ def determine_default_max_value(
 
 def determine_max_value(
     bound_arguments: inspect.BoundArguments,
-    args: Sequence,
-    kwargs: Mapping[str, Any],
+    args: P.args,
+    kwargs: P.kwargs,
     parameter_name: str,
-    default_max_value: int | Callable[..., int] | None,
+    default_max_value: int | Callable[P, int] | None,
 ) -> int:
     """
     Either use the provided value, or the default maximum value.
@@ -171,14 +171,16 @@ def determine_max_value(
     :raises ValueError:
         when the given value to the parameter is None
     """
-    max_value = bound_arguments.arguments.pop(parameter_name, default_max_value)
-    if max_value is None:
-        raise ValueError(
-            f"Invalid maximum value for parameter {parameter_name}: {max_value}",
-        )
-    elif callable(max_value):
-        max_value = max_value(*args, **kwargs)
-    return max_value
+    max_value = bound_arguments.arguments.get(parameter_name)
+    if isinstance(max_value, int):
+        return max_value
+    if max_value is not None:
+        raise ValueError(f"{parameter_name}={max_value!r} is neither integer nor None.")
+    if default_max_value is None:
+        raise ValueError("Neither value nor default value found")
+    if isinstance(default_max_value, int):
+        return default_max_value
+    return default_max_value(*args, **kwargs)
 
 
 # cf. https://github.com/pykeen/pykeen/pull/279
@@ -199,14 +201,15 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 }
 
 
-def iter_tensor_devices(*args, **kwargs) -> Iterable[torch.device]:
+def iter_tensor_devices(*args: Any, **kwargs: Any) -> Iterable[torch.device]:
     """Iterate over tensors' devices (may contain duplicates)."""
     for obj in itertools.chain(args, kwargs.values()):
         if torch.is_tensor(obj):
+            assert isinstance(obj, torch.Tensor)
             yield obj.device
 
 
-def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callable:
+def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callable[P, None]:
     """
     Create a function that warns when tensors are on any device that is not considered safe.
 
@@ -225,7 +228,7 @@ def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callab
         f"Will warn about running memory utilization maximization on tensors on devices other than {safe_devices_set}",
     )
 
-    def check_tensors(*args, **kwargs) -> None:
+    def check_tensors(*args: P.args, **kwargs: P.kwargs) -> None:
         """Check whether any tensor argument is on a dangerous device."""
         device_types = {device.type for device in iter_tensor_devices(*args, **kwargs)}
 
@@ -294,7 +297,7 @@ def maximize_memory_utilization_decorator(
     :return:
         A decorator for functions.
     """
-    maybe_warn = create_tensor_checker(safe_devices=safe_devices)
+    maybe_warn: Callable[..., None] = create_tensor_checker(safe_devices=safe_devices)
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
