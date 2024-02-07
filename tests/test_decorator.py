@@ -171,5 +171,5 @@ def test_large():
 
     x = torch.rand(100000, 100, device="mps")
     y = torch.rand(200000, 100, device="mps")
-    z = knn(x, y, batch_size=x.shape[0])
-    assert z
+    _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
+    assert batch_size > 0
