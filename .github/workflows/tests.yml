@@ -54,7 +54,7 @@ jobs:
         python-version: [ "3.8", "3.11" ]
         exclude:
           # 3.8 is not available for M1 macOS
-          - os: macos-latest
+          - os: macos-14
             python-version: "3.8"
     steps:
       - uses: actions/checkout@v4
