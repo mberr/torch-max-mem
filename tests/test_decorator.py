@@ -159,3 +159,17 @@ def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
 def test_oom_error_detection(error: BaseException, exp: bool) -> None:
     """Test OOM error detection."""
     assert is_oom_error(error) is exp
+
+
+@pytest.mark.slow
+def test_large():
+    """Test memory optimization on a large input."""
+    import torch.backends.mps
+
+    if not torch.backends.mps.is_available():
+        pytest.skip("Cannot run on CPU")
+
+    x = torch.rand(100000, 100, device="mps")
+    y = torch.rand(200000, 100, device="mps")
+    z = knn(x, y, batch_size=x.shape[0])
+    assert z
