@@ -24,8 +24,8 @@
     <a href="https://github.com/mberr/torch-max-mem/blob/main/LICENSE">
         <img alt="PyPI - License" src="https://img.shields.io/pypi/l/torch_max_mem" />
     </a>
-    <a href='https://torch_max_mem.readthedocs.io/en/latest/?badge=latest'>
-        <img src='https://readthedocs.org/projects/torch_max_mem/badge/?version=latest' alt='Documentation Status' />
+    <a href='https://torch-max-mem.readthedocs.io/en/latest/?badge=latest'>
+        <img src='https://readthedocs.org/projects/torch-max-mem/badge/?version=latest' alt='Documentation Status' />
     </a>
     <a href='https://github.com/psf/black'>
         <img src='https://img.shields.io/badge/code%20style-black-000000.svg' alt='Code style: black' />
