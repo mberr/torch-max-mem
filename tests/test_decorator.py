@@ -168,12 +168,6 @@ def test_large_on_mps():
 
     if not torch.backends.mps.is_available():
         pytest.skip("Cannot run on CPU")
-    # note: this test currently cannot run on GHA, cf.
-    # - https://discuss.pytorch.org/t/mps-back-end-out-of-memory-on-github-action/189773
-    # - https://github.com/mberr/torch-max-mem/actions/runs/7820367693/job/21334908894
-    pytest.skip(
-        "temporarily disabled, cf. https://discuss.pytorch.org/t/mps-back-end-out-of-memory-on-github-action/189773"
-    )
 
     x = torch.rand(100000, 100, device="mps")
     y = torch.rand(200000, 100, device="mps")
