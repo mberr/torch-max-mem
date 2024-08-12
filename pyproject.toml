@@ -46,6 +46,7 @@ dependencies = [
     "torch>=2.0",
     "torch<2.4; platform_system=='Windows'",
     "torch<2.2; platform_system=='Darwin'",
+    "numpy<2; platform_system=='Darwin'",
     "typing_extensions",
 ]
 
