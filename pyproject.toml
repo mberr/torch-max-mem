@@ -85,7 +85,7 @@ where = ["src"] # list of folders that contain the packages (["."] by default)
 
 # Doc8, see https://doc8.readthedocs.io/en/stable/readme.html#ini-file-usage
 [tool.doc8]
-max-line-length = "120"
+max-line-length = 120
 
 # Coverage, see https://coverage.readthedocs.io/en/latest/config.html
 [tool.coverage.run]
