@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 This module contains the public API.
 
@@ -45,6 +43,7 @@ In the code, you can now always pass the largest sensible batch size, e.g.,
     y = torch.rand(200, 100, device="cuda")
     knn(x, y, batch_size=x.shape[0])
 """
+
 # cf. https://gist.github.com/mberr/c37a8068b38cabc98228db2cbe358043
 from __future__ import annotations
 
@@ -59,9 +58,7 @@ from typing import (
     Iterable,
     Mapping,
     MutableMapping,
-    Optional,
     Sequence,
-    Tuple,
     TypeVar,
 )
 
@@ -98,9 +95,7 @@ def upgrade_to_sequence(
         when the (inferred) length of q and parameter_name do not match
     """
     # normalize parameter name
-    parameter_names = (
-        (parameter_name,) if isinstance(parameter_name, str) else tuple(parameter_name)
-    )
+    parameter_names = (parameter_name,) if isinstance(parameter_name, str) else tuple(parameter_name)
     q = (q,) if isinstance(q, int) else tuple(q)
     q = q * len(parameter_names) if len(q) == 1 else q
     if len(q) != len(parameter_names):
@@ -127,7 +122,7 @@ def determine_default_max_value(
     :raises ValueError:
         when the function does not have a parameter of the given name
     """
-    if parameter_name not in signature.parameters.keys():
+    if parameter_name not in signature.parameters:
         raise ValueError(f"{func} does not have a parameter {parameter_name}.")
     _parameter = signature.parameters[parameter_name]
     if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation not in (
@@ -203,12 +198,13 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 def iter_tensor_devices(*args: Any, **kwargs: Any) -> Iterable[torch.device]:
     """Iterate over tensors' devices (may contain duplicates)."""
     for obj in itertools.chain(args, kwargs.values()):
-        if torch.is_tensor(obj):
-            assert isinstance(obj, torch.Tensor)
+        if isinstance(obj, torch.Tensor):
             yield obj.device
 
 
-def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callable[P, None]:
+def create_tensor_checker(
+    safe_devices: Collection[str] | None = None,
+) -> Callable[P, None]:
     """
     Create a function that warns when tensors are on any device that is not considered safe.
 
@@ -282,7 +278,7 @@ def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
     safe_devices: Collection[str] | None = None,
-) -> Callable[[Callable[P, R]], Callable[P, Tuple[R, tuple[int, ...]]]]:
+) -> Callable[[Callable[P, R]], Callable[P, tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
 
@@ -300,8 +296,8 @@ def maximize_memory_utilization_decorator(
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
-        func: Callable[P, R]
-    ) -> Callable[P, Tuple[R, tuple[int, ...]]]:
+        func: Callable[P, R],
+    ) -> Callable[P, tuple[R, tuple[int, ...]]]:
         """
         Decorate a function to maximize memory utilization.
 
@@ -319,9 +315,7 @@ def maximize_memory_utilization_decorator(
         }
 
         @functools.wraps(func)
-        def wrapper_maximize_memory_utilization(
-            *args: P.args, **kwargs: P.kwargs
-        ) -> Tuple[R, tuple[int, ...]]:
+        def wrapper_maximize_memory_utilization(*args: P.args, **kwargs: P.kwargs) -> tuple[R, tuple[int, ...]]:
             """
             Wrap a function to maximize memory utilization by successive halving.
 
@@ -359,15 +353,11 @@ def maximize_memory_utilization_decorator(
 
             while i < len(max_values):
                 while max_values[i] > 0:
-                    p_kwargs = {
-                        name: max_value for name, max_value in zip(parameter_names, max_values)
-                    }
+                    p_kwargs = {name: max_value for name, max_value in zip(parameter_names, max_values)}
                     # note: changes to arguments apply to both, .args and .kwargs
                     bound_arguments.arguments.update(p_kwargs)
                     try:
-                        return func(*bound_arguments.args, **bound_arguments.kwargs), tuple(
-                            max_values
-                        )
+                        return func(*bound_arguments.args, **bound_arguments.kwargs), tuple(max_values)
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
                         # raise errors unrelated to out-of-memory
                         if not is_oom_error(error):
@@ -392,12 +382,8 @@ def maximize_memory_utilization_decorator(
                 i += 1
             # log memory summary for each CUDA device before raising memory error
             for device in {d for d in iter_tensor_devices(*args, **kwargs) if d.type == "cuda"}:
-                logger.debug(
-                    f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}"
-                )
-            raise MemoryError(
-                f"Execution did not even succeed with {parameter_names} all equal to 1."
-            ) from last_error
+                logger.debug(f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}")
+            raise MemoryError(f"Execution did not even succeed with {parameter_names} all equal to 1.") from last_error
 
         return wrapper_maximize_memory_utilization
 
@@ -456,7 +442,7 @@ class MemoryUtilizationMaximizer:
         parameter_name: str | Sequence[str] = "batch_size",
         q: int | Sequence[int] = 32,
         safe_devices: Collection[str] | None = None,
-        hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
+        hasher: Callable[[Mapping[str, Any]], int] | None = None,
         keys: Collection[str] | str | None = None,
     ) -> None:
         """
