@@ -1,11 +1,10 @@
-
 """Version information for :mod:`torch_max_mem`.
 
 Run with ``python -m torch_max_mem.version``
 """
 
 import os
-from subprocess import CalledProcessError, check_output  # noqa: S404
+from subprocess import CalledProcessError, check_output
 
 __all__ = [
     "VERSION",
@@ -20,8 +19,8 @@ def get_git_hash() -> str:
     """Get the :mod:`torch_max_mem` git hash."""
     with open(os.devnull, "w") as devnull:
         try:
-            ret = check_output(  # noqa: S603,S607
-                ["git", "rev-parse", "HEAD"],
+            ret = check_output(  # noqa: S603
+                ["git", "rev-parse", "HEAD"],  # noqa: S607
                 cwd=os.path.dirname(__file__),
                 stderr=devnull,
             )

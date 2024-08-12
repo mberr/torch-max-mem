@@ -1,4 +1,3 @@
-
 """
 This module contains the public API.
 
@@ -59,9 +58,7 @@ from typing import (
     Iterable,
     Mapping,
     MutableMapping,
-    Optional,
     Sequence,
-    Tuple,
     TypeVar,
 )
 
@@ -201,8 +198,7 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
 def iter_tensor_devices(*args: Any, **kwargs: Any) -> Iterable[torch.device]:
     """Iterate over tensors' devices (may contain duplicates)."""
     for obj in itertools.chain(args, kwargs.values()):
-        if torch.is_tensor(obj):
-            assert isinstance(obj, torch.Tensor)
+        if isinstance(obj, torch.Tensor):
             yield obj.device
 
 
@@ -282,7 +278,7 @@ def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
     safe_devices: Collection[str] | None = None,
-) -> Callable[[Callable[P, R]], Callable[P, Tuple[R, tuple[int, ...]]]]:
+) -> Callable[[Callable[P, R]], Callable[P, tuple[R, tuple[int, ...]]]]:
     """
     Create decorators to create methods for memory utilization maximization.
 
@@ -301,7 +297,7 @@ def maximize_memory_utilization_decorator(
 
     def decorator_maximize_memory_utilization(
         func: Callable[P, R],
-    ) -> Callable[P, Tuple[R, tuple[int, ...]]]:
+    ) -> Callable[P, tuple[R, tuple[int, ...]]]:
         """
         Decorate a function to maximize memory utilization.
 
@@ -319,7 +315,7 @@ def maximize_memory_utilization_decorator(
         }
 
         @functools.wraps(func)
-        def wrapper_maximize_memory_utilization(*args: P.args, **kwargs: P.kwargs) -> Tuple[R, tuple[int, ...]]:
+        def wrapper_maximize_memory_utilization(*args: P.args, **kwargs: P.kwargs) -> tuple[R, tuple[int, ...]]:
             """
             Wrap a function to maximize memory utilization by successive halving.
 
@@ -446,7 +442,7 @@ class MemoryUtilizationMaximizer:
         parameter_name: str | Sequence[str] = "batch_size",
         q: int | Sequence[int] = 32,
         safe_devices: Collection[str] | None = None,
-        hasher: Optional[Callable[[Mapping[str, Any]], int]] = None,
+        hasher: Callable[[Mapping[str, Any]], int] | None = None,
         keys: Collection[str] | str | None = None,
     ) -> None:
         """
