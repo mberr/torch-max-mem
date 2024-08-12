@@ -49,7 +49,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tests = ["numpy", "numpy<2; platform_system=='Windows'", "pytest", "coverage"]
+tests = ["pytest", "coverage"]
 docs = [
     # Sphinx >= 8.0 not supported by rtd theme, cf. https://github.com/readthedocs/sphinx_rtd_theme/issues/1582
     "sphinx<8",

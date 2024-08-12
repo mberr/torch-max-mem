@@ -1,19 +1,13 @@
-
 """Tests."""
 
 import unittest
 from typing import Optional, Tuple
 
-import numpy.testing
 import pytest
 import torch
 
 from torch_max_mem import maximize_memory_utilization
-from torch_max_mem.api import (
-    floor_to_nearest_multiple_of,
-    is_oom_error,
-    maximize_memory_utilization_decorator,
-)
+from torch_max_mem.api import floor_to_nearest_multiple_of, is_oom_error, maximize_memory_utilization_decorator
 
 
 def knn(x, y, batch_size, k: int = 3):
@@ -42,20 +36,20 @@ class TestDecorator(unittest.TestCase):
         x = torch.rand(100, 100, device=self.device, generator=self.rng)
         y = torch.rand(200, 100, device=self.device, generator=self.rng)
         for batch_size in [1, 10, x.shape[0]]:
-            numpy.testing.assert_array_equal(
-                knn(x, y, batch_size).numpy(),
-                wrapped_knn(x, y, batch_size=x.shape[0])[0].numpy(),
-            )
+            reference = knn(x, y, batch_size)
+            optimized = wrapped_knn(x, y, batch_size=x.shape[0])[0]
+            assert reference.shape == optimized.shape
+            assert torch.allclose(reference, optimized)
 
     def test_knn_stateful(self):
         """Test consistent results between original and wrapped method for stateful wrapper."""
         x = torch.rand(100, 100, device=self.device, generator=self.rng)
         y = torch.rand(200, 100, device=self.device, generator=self.rng)
         for batch_size in [1, 10, x.shape[0]]:
-            numpy.testing.assert_array_equal(
-                knn(x, y, batch_size).numpy(),
-                wrapped_knn_stateful(x, y, batch_size=x.shape[0]).numpy(),
-            )
+            reference = knn(x, y, batch_size)
+            optimized = wrapped_knn_stateful(x, y, batch_size=x.shape[0])
+            assert reference.shape == optimized.shape
+            assert torch.allclose(reference, optimized)
 
 
 def test_parameter_types():
