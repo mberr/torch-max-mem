@@ -27,8 +27,8 @@
     <a href='https://torch-max-mem.readthedocs.io/en/latest/?badge=latest'>
         <img src='https://readthedocs.org/projects/torch-max-mem/badge/?version=latest' alt='Documentation Status' />
     </a>
-    <a href='https://github.com/psf/black'>
-        <img src='https://img.shields.io/badge/code%20style-black-000000.svg' alt='Code style: black' />
+    <a href="https://github.com/astral-sh/ruff">
+        <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Ruff" style="max-width:100%;">
     </a>
 </p>
 
