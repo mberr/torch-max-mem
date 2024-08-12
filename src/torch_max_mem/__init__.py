@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """Maximize memory utilization with PyTorch."""
 

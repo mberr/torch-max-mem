@@ -141,6 +141,12 @@ ignore = [
     # "D102", # Missing docstring in init TODO remove
 ]
 
+# See https://docs.astral.sh/ruff/settings/#per-file-ignores
+[tool.ruff.lint.per-file-ignores]
+# asserts in tests
+"tests/**/*.py" = ["S101"]
+
+
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
 
