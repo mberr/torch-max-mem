@@ -169,7 +169,9 @@ def test_large_on_mps():
     if not torch.backends.mps.is_available():
         pytest.skip("Cannot run on CPU")
 
-    x = torch.rand(100000, 100, device="mps")
-    y = torch.rand(200000, 100, device="mps")
+    # note: torch.cdist calculates the pairwise distances, so its output has shape x.shape[0] * y.shape[0]
+    # On MPS, it will run into a SEGFAULT when this exceeds int32, so we use a small enough input here
+    x = torch.rand(50_000, 100, device="mps")
+    y = torch.rand(80_000, 100, device="mps")
     _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
     assert batch_size > 0
