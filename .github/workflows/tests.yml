@@ -11,51 +11,66 @@ jobs:
         python-version: [ "3.8", "3.11" ]
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
       - name: Install dependencies
-        run: pip install tox
-      - name: Check manifest
-        run: tox -e manifest
-      - name: Check code quality with flake8
-        run: tox -e flake8
-      - name: Check package metadata with Pyroma
-        run: tox -e pyroma
+        run: pip install tox tox-uv
+        
       - name: Check static typing with MyPy
         run: tox -e mypy
-  docs:
-    name: Documentation
+
+      - name: Check code quality
+        run: tox -e lint
+
+  lint-single-version:
+    name: Package Meta & Documentation
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.8", "3.11" ]
+        python-version: [ "3.11" ]
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: pip install tox
-      - name: Check RST conformity with doc8
-        run: tox -e doc8
-      - name: Check docstring coverage
-        run: tox -e docstr-coverage
-      - name: Check documentation build with Sphinx
-        run: tox -e docs-test
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: pip install tox tox-uv
+
+    - name: Check package metadata with Pyroma
+      run: tox -e pyroma
+    
+    - name: Check docstring coverage
+      run: tox -e docstr-coverage
+
+    - name: Check manifest
+      run: tox -e manifest
+
+    - name: Check RST conformity with doc8
+      run: tox -e doc8
+
+    - name: Check documentation build with Sphinx
+      run: tox -e docs-test
+
   tests:
     name: Tests
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-14 ]
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
         python-version: [ "3.8", "3.11" ]
         exclude:
           # 3.8 is not available for M1 macOS
           - os: macos-14
             python-version: "3.8"
+    needs:
+      - lint
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python ${{ matrix.python-version }}
@@ -63,7 +78,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: pip install tox
+        run: pip install tox tox-uv
       - name: Test with pytest and generate coverage file
         run:
           tox -e py
+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true

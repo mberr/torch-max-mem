@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 """Tests."""
 
@@ -101,7 +100,7 @@ def test_optimization():
     def func(batch_size: int = 8):
         """Test function."""
         if batch_size > 2:
-            raise torch.cuda.OutOfMemoryError()
+            raise torch.cuda.OutOfMemoryError
         return batch_size
 
     assert func() == 2
@@ -114,13 +113,13 @@ def test_optimization_multi_level():
     def func(batch_size: int = 8, slice_size: int = 16):
         """Test function."""
         if batch_size > 1 or slice_size > 8:
-            raise torch.cuda.OutOfMemoryError()
+            raise torch.cuda.OutOfMemoryError
         return batch_size, slice_size
 
     assert func() == (1, 8)
 
 
-@pytest.mark.parametrize("x,q", [(15, 4), (3, 4)])
+@pytest.mark.parametrize(("x", "q"), [(15, 4), (3, 4)])
 def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
     """Test floor_to_nearest_multiple_of."""
     r = floor_to_nearest_multiple_of(x=x, q=q)
@@ -135,7 +134,7 @@ def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
 
 
 @pytest.mark.parametrize(
-    "error,exp",
+    ("error", "exp"),
     [
         # base cases
         (NameError(), False),
@@ -161,7 +160,7 @@ def test_oom_error_detection(error: BaseException, exp: bool) -> None:
     assert is_oom_error(error) is exp
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_large_on_mps():
     """Test memory optimization on a large input."""
     import torch.backends.mps
