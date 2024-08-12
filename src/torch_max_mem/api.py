@@ -122,7 +122,7 @@ def determine_default_max_value(
     :raises ValueError:
         when the function does not have a parameter of the given name
     """
-    if parameter_name not in signature.parameters.keys():
+    if parameter_name not in signature.parameters:
         raise ValueError(f"{func} does not have a parameter {parameter_name}.")
     _parameter = signature.parameters[parameter_name]
     if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation not in (

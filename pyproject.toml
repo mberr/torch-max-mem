@@ -126,12 +126,15 @@ extend-select = [
     "W",   # pycodestyle warnings
     "C90", # mccabe
     "I",   # isort
-    "UP",  # pyupgrade
-    "D",   # pydocstyle
-    "B",   # bugbear
-    "S",   # bandit
-    "T20", # print
     "N",   # pep8 naming
+    "D",   # pydocstyle
+    "UP",  # pyupgrade
+    "S",   # bandit
+    "B",   # bugbear
+    "T20", # print
+    "PT",  # pytest-style
+    "RSE", #raise
+    "SIM", # simplify
     "ERA", # eradicate commented out code
     "NPY", # numpy checks
     "RUF", # ruff rules
