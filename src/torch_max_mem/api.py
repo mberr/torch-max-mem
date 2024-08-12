@@ -99,9 +99,7 @@ def upgrade_to_sequence(
         when the (inferred) length of q and parameter_name do not match
     """
     # normalize parameter name
-    parameter_names = (
-        (parameter_name,) if isinstance(parameter_name, str) else tuple(parameter_name)
-    )
+    parameter_names = (parameter_name,) if isinstance(parameter_name, str) else tuple(parameter_name)
     q = (q,) if isinstance(q, int) else tuple(q)
     q = q * len(parameter_names) if len(q) == 1 else q
     if len(q) != len(parameter_names):
@@ -131,13 +129,9 @@ def determine_default_max_value(
     if parameter_name not in signature.parameters.keys():
         raise ValueError(f"{func} does not have a parameter {parameter_name}.")
     _parameter = signature.parameters[parameter_name]
-    if (
-        _parameter.annotation != inspect.Parameter.empty
-        and _parameter.annotation
-        not in (
-            int,
-            "int",
-        )
+    if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation not in (
+        int,
+        "int",
     ):
         logger.warning(
             f"Memory utilization maximization is written for integer parameters, but the "
@@ -321,16 +315,12 @@ def maximize_memory_utilization_decorator(
         # Input validation, and extraction of default maximum values
         signature = inspect.signature(func)
         default_max_values = {
-            name: determine_default_max_value(
-                func=func, parameter_name=name, signature=signature
-            )
+            name: determine_default_max_value(func=func, parameter_name=name, signature=signature)
             for name in parameter_names
         }
 
         @functools.wraps(func)
-        def wrapper_maximize_memory_utilization(
-            *args: P.args, **kwargs: P.kwargs
-        ) -> Tuple[R, tuple[int, ...]]:
+        def wrapper_maximize_memory_utilization(*args: P.args, **kwargs: P.kwargs) -> Tuple[R, tuple[int, ...]]:
             """
             Wrap a function to maximize memory utilization by successive halving.
 
@@ -368,16 +358,11 @@ def maximize_memory_utilization_decorator(
 
             while i < len(max_values):
                 while max_values[i] > 0:
-                    p_kwargs = {
-                        name: max_value
-                        for name, max_value in zip(parameter_names, max_values)
-                    }
+                    p_kwargs = {name: max_value for name, max_value in zip(parameter_names, max_values)}
                     # note: changes to arguments apply to both, .args and .kwargs
                     bound_arguments.arguments.update(p_kwargs)
                     try:
-                        return func(
-                            *bound_arguments.args, **bound_arguments.kwargs
-                        ), tuple(max_values)
+                        return func(*bound_arguments.args, **bound_arguments.kwargs), tuple(max_values)
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
                         # raise errors unrelated to out-of-memory
                         if not is_oom_error(error):
@@ -393,9 +378,7 @@ def maximize_memory_utilization_decorator(
 
                         # reduce parameter
                         logger.info(f"Execution failed with {p_kwargs=}")
-                        max_values[i] = floor_to_nearest_multiple_of(
-                            x=max_values[i] // 2, q=qs[i]
-                        )
+                        max_values[i] = floor_to_nearest_multiple_of(x=max_values[i] // 2, q=qs[i])
 
                         # update last error
                         last_error = error
@@ -403,15 +386,9 @@ def maximize_memory_utilization_decorator(
                 max_values[i] = 1
                 i += 1
             # log memory summary for each CUDA device before raising memory error
-            for device in {
-                d for d in iter_tensor_devices(*args, **kwargs) if d.type == "cuda"
-            }:
-                logger.debug(
-                    f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}"
-                )
-            raise MemoryError(
-                f"Execution did not even succeed with {parameter_names} all equal to 1."
-            ) from last_error
+            for device in {d for d in iter_tensor_devices(*args, **kwargs) if d.type == "cuda"}:
+                logger.debug(f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}")
+            raise MemoryError(f"Execution did not even succeed with {parameter_names} all equal to 1.") from last_error
 
         return wrapper_maximize_memory_utilization
 
@@ -487,9 +464,7 @@ class MemoryUtilizationMaximizer:
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
         """
-        self.parameter_names, self.qs = upgrade_to_sequence(
-            parameter_name=parameter_name, q=q
-        )
+        self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
         self.safe_devices = safe_devices
         self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
         if hasher is None:
