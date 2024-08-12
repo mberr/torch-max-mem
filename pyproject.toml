@@ -132,22 +132,17 @@ extend-select = [
     "S",   # bandit
     "T20", # print
     "N",   # pep8 naming
-    # "ERA", # eradicate commented out code
-    # "NPY", # numpy checks
-    # "RUF", # ruff rules
+    "ERA", # eradicate commented out code
+    "NPY", # numpy checks
+    "RUF", # ruff rules
 ]
-ignore = [
-    # "D105", # Missing docstring in magic method
-    # "E203", # Black conflicts with the following
-    # "S101", # Asserts, TODO remove
-    # "D102", # Missing docstring in init TODO remove
-]
+ignore = []
 
 # See https://docs.astral.sh/ruff/settings/#per-file-ignores
 [tool.ruff.lint.per-file-ignores]
 # asserts in tests
 "tests/**/*.py" = ["S101"]
-"docs/source/conf.py" = ["D100"]
+"docs/source/conf.py" = ["D100", "ERA001"]
 
 
 [tool.ruff.lint.pydocstyle]
