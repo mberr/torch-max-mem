@@ -27,7 +27,7 @@ copyright = f"{date.today().year}, Max Berrendorf"
 author = "Max Berrendorf"
 
 # The full version, including alpha/beta/rc tags.
-release = '0.1.4-dev'
+release = "0.1.4-dev"
 
 # The short X.Y version.
 parsed_version = re.match(
@@ -37,7 +37,7 @@ parsed_version = re.match(
 version = parsed_version.expand("\g<major>.\g<minor>.\g<patch>")
 
 if parsed_version.group("release"):
-    tags.add("prerelease")
+    tags.add("prerelease")  # noqa:F821
 
 # -- General configuration ---------------------------------------------------
 

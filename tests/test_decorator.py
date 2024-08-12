@@ -21,7 +21,9 @@ def knn(x, y, batch_size, k: int = 3):
     """Compute k-nearst neigbors via batched brute-force distance calculation."""
     return torch.cat(
         [
-            torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
+            torch.cdist(x[start : start + batch_size], y)
+            .topk(k=k, dim=1, largest=False)
+            .indices
             for start in range(0, x.shape[0], batch_size)
         ],
         dim=0,

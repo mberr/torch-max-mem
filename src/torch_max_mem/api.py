@@ -45,6 +45,7 @@ In the code, you can now always pass the largest sensible batch size, e.g.,
     y = torch.rand(200, 100, device="cuda")
     knn(x, y, batch_size=x.shape[0])
 """
+
 # cf. https://gist.github.com/mberr/c37a8068b38cabc98228db2cbe358043
 from __future__ import annotations
 
@@ -130,9 +131,13 @@ def determine_default_max_value(
     if parameter_name not in signature.parameters.keys():
         raise ValueError(f"{func} does not have a parameter {parameter_name}.")
     _parameter = signature.parameters[parameter_name]
-    if _parameter.annotation != inspect.Parameter.empty and _parameter.annotation not in (
-        int,
-        "int",
+    if (
+        _parameter.annotation != inspect.Parameter.empty
+        and _parameter.annotation
+        not in (
+            int,
+            "int",
+        )
     ):
         logger.warning(
             f"Memory utilization maximization is written for integer parameters, but the "
@@ -208,7 +213,9 @@ def iter_tensor_devices(*args: Any, **kwargs: Any) -> Iterable[torch.device]:
             yield obj.device
 
 
-def create_tensor_checker(safe_devices: Collection[str] | None = None) -> Callable[P, None]:
+def create_tensor_checker(
+    safe_devices: Collection[str] | None = None,
+) -> Callable[P, None]:
     """
     Create a function that warns when tensors are on any device that is not considered safe.
 
@@ -300,7 +307,7 @@ def maximize_memory_utilization_decorator(
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
-        func: Callable[P, R]
+        func: Callable[P, R],
     ) -> Callable[P, Tuple[R, tuple[int, ...]]]:
         """
         Decorate a function to maximize memory utilization.
@@ -314,7 +321,9 @@ def maximize_memory_utilization_decorator(
         # Input validation, and extraction of default maximum values
         signature = inspect.signature(func)
         default_max_values = {
-            name: determine_default_max_value(func=func, parameter_name=name, signature=signature)
+            name: determine_default_max_value(
+                func=func, parameter_name=name, signature=signature
+            )
             for name in parameter_names
         }
 
@@ -360,14 +369,15 @@ def maximize_memory_utilization_decorator(
             while i < len(max_values):
                 while max_values[i] > 0:
                     p_kwargs = {
-                        name: max_value for name, max_value in zip(parameter_names, max_values)
+                        name: max_value
+                        for name, max_value in zip(parameter_names, max_values)
                     }
                     # note: changes to arguments apply to both, .args and .kwargs
                     bound_arguments.arguments.update(p_kwargs)
                     try:
-                        return func(*bound_arguments.args, **bound_arguments.kwargs), tuple(
-                            max_values
-                        )
+                        return func(
+                            *bound_arguments.args, **bound_arguments.kwargs
+                        ), tuple(max_values)
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
                         # raise errors unrelated to out-of-memory
                         if not is_oom_error(error):
@@ -383,7 +393,9 @@ def maximize_memory_utilization_decorator(
 
                         # reduce parameter
                         logger.info(f"Execution failed with {p_kwargs=}")
-                        max_values[i] = floor_to_nearest_multiple_of(x=max_values[i] // 2, q=qs[i])
+                        max_values[i] = floor_to_nearest_multiple_of(
+                            x=max_values[i] // 2, q=qs[i]
+                        )
 
                         # update last error
                         last_error = error
@@ -391,7 +403,9 @@ def maximize_memory_utilization_decorator(
                 max_values[i] = 1
                 i += 1
             # log memory summary for each CUDA device before raising memory error
-            for device in {d for d in iter_tensor_devices(*args, **kwargs) if d.type == "cuda"}:
+            for device in {
+                d for d in iter_tensor_devices(*args, **kwargs) if d.type == "cuda"
+            }:
                 logger.debug(
                     f"Memory summary for {device=}:\n{torch.cuda.memory_summary(device=device)}"
                 )
@@ -473,7 +487,9 @@ class MemoryUtilizationMaximizer:
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
         """
-        self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
+        self.parameter_names, self.qs = upgrade_to_sequence(
+            parameter_name=parameter_name, q=q
+        )
         self.safe_devices = safe_devices
         self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
         if hasher is None:
