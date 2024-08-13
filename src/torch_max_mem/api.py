@@ -1,5 +1,4 @@
-"""
-This module contains the public API.
+"""This module contains the public API.
 
 Assume you have a function for batched computation of nearest neighbors using brute-force distance calculation.
 
@@ -33,7 +32,6 @@ out-of-memory error occurs.
             ],
             dim=0,
         )
-
 
 In the code, you can now always pass the largest sensible batch size, e.g.,
 
@@ -78,21 +76,21 @@ P = ParamSpec("P")
 def upgrade_to_sequence(
     parameter_name: str | Sequence[str], q: int | Sequence[int]
 ) -> tuple[tuple[str, ...], tuple[int, ...]]:
-    """
-    Ensure that both, parameter names and q values, are provided as a sequence.
+    """Ensure that both, parameter names and q values, are provided as a sequence.
 
     Besides upgrading both to a tuple, it will also broadcast q if necessary.
 
-    :param parameter_name:
-        the parameter name, or a sequence thereof
-    :param q:
-        the q value, or a sequence thereof
+    Args:
+        parameter_name: the parameter name, or a sequence thereof
+        q: the q value, or a sequence thereof
 
-    :return:
-        a tuple of parameter names and a sequence of q values of same length
+    Returns:
+        a tuple of parameter names and a sequence of q values of same
+        length
 
-    :raises ValueError:
-        when the (inferred) length of q and parameter_name do not match
+    Raises:
+        ValueError: when the (inferred) length of q and parameter_name
+            do not match
     """
     # normalize parameter name
     parameter_names = (parameter_name,) if isinstance(parameter_name, str) else tuple(parameter_name)
@@ -106,21 +104,19 @@ def upgrade_to_sequence(
 def determine_default_max_value(
     func: Callable[..., Any], parameter_name: str, signature: inspect.Signature
 ) -> int | None:
-    """
-    Determine the default maximum value based on the signature.
+    """Determine the default maximum value based on the signature.
 
-    :param func:
-        the function; only used for nice error messages
-    :param parameter_name:
-        the name of the parameter
-    :param signature:
-        the signature of the function
+    Args:
+        func: the function; only used for nice error messages
+        parameter_name: the name of the parameter
+        signature: the signature of the function
 
-    :return:
+    Returns:
         the default value as an integer, if any is given.
 
-    :raises ValueError:
-        when the function does not have a parameter of the given name
+    Raises:
+        ValueError: when the function does not have a parameter of the
+            given name
     """
     if parameter_name not in signature.parameters:
         raise ValueError(f"{func} does not have a parameter {parameter_name}.")
@@ -145,25 +141,23 @@ def determine_max_value(
     parameter_name: str,
     default_max_value: int | Callable[P, int] | None,
 ) -> int:
-    """
-    Either use the provided value, or the default maximum value.
+    """Either use the provided value, or the default maximum value.
 
-    :param bound_arguments:
-        the bound arguments of the function
-    :param args:
-        the positional parameters of the function: necessary when the default max value is a callable
-    :param kwargs:
-        the keyword parameters of the function: necessary when the default max value is a callable
-    :param parameter_name:
-        the parameter name
-    :param default_max_value:
-        the default max value, or a callable to determine one
+    Args:
+        bound_arguments: the bound arguments of the function
+        args: the positional parameters of the function: necessary when
+            the default max value is a callable
+        kwargs: the keyword parameters of the function: necessary when
+            the default max value is a callable
+        parameter_name: the parameter name
+        default_max_value: the default max value, or a callable to
+            determine one
 
-    :return:
+    Returns:
         the maximum value
 
-    :raises ValueError:
-        when the given value to the parameter is None
+    Raises:
+        ValueError: when the given value to the parameter is None
     """
     max_value = bound_arguments.arguments.get(parameter_name)
     if isinstance(max_value, int):
@@ -205,16 +199,19 @@ def iter_tensor_devices(*args: Any, **kwargs: Any) -> Iterable[torch.device]:
 def create_tensor_checker(
     safe_devices: Collection[str] | None = None,
 ) -> Callable[P, None]:
-    """
-    Create a function that warns when tensors are on any device that is not considered safe.
+    """Create a function that warns when tensors are on any device that is not considered safe.
 
-    :param safe_devices:
-        these devices are considered safe, i.e., the program will receive meaningful exceptions to handle out of memory
-        (OOM) issues. For example for CPU, OOM errors may trigger the operating system's OOM killer to directly
-        terminate the process without any catchable exceptions. Defaults to ``{"cuda"}``.
+    Args:
+        safe_devices: these devices are considered safe, i.e., the
+            program will receive meaningful exceptions to handle out of
+            memory (OOM) issues. For example for CPU, OOM errors may
+            trigger the operating system's OOM killer to directly
+            terminate the process without any catchable exceptions.
+            Defaults to ``{"cuda"}``.
 
-    :return:
-        a function that checks its parameters for tensors and emits a warning if any is on a non-safe device.
+    Returns:
+        a function that checks its parameters for tensors and emits a
+        warning if any is on a non-safe device.
     """
     if safe_devices is None:
         safe_devices = {"cuda"}
@@ -238,16 +235,15 @@ def create_tensor_checker(
 
 
 def floor_to_nearest_multiple_of(x: int, q: int) -> int:
-    """
-    Try to ensure that x is a multiple of q.
+    """Try to ensure that x is a multiple of q.
 
-    :param x:
-        the input value
-    :param q:
-        the desired base factor
+    Args:
+        x: the input value
+        q: the desired base factor
 
-    :return:
-        x if x is smaller than q, otherwise, the largest multiple of q that is smaller than x
+    Returns:
+        x if x is smaller than q, otherwise, the largest multiple of q
+        that is smaller than x
     """
     if x <= q:
         return x
@@ -256,13 +252,12 @@ def floor_to_nearest_multiple_of(x: int, q: int) -> int:
 
 
 def is_oom_error(error: BaseException) -> bool:
-    """
-    Return whether the given exception is an out-of-memory (like) exception.
+    """Return whether the given exception is an out-of-memory (like) exception.
 
-    :param error:
-        the error
+    Args:
+        error: the error
 
-    :return:
+    Returns:
         whether it should be handled like an out-of-memory exception
     """
     if isinstance(error, torch.cuda.OutOfMemoryError):
@@ -279,17 +274,15 @@ def maximize_memory_utilization_decorator(
     q: int | Sequence[int] = 32,
     safe_devices: Collection[str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, tuple[R, tuple[int, ...]]]]:
-    """
-    Create decorators to create methods for memory utilization maximization.
+    """Create decorators to create methods for memory utilization maximization.
 
-    :param parameter_name:
-        The parameter name.
-    :param q:
-        Prefer multiples of q as size.
-    :param safe_devices:
-        These devices are considered safe to run maximization on, cf. :meth:`create_tensor_checker`.
+    Args:
+        parameter_name: The parameter name.
+        q: Prefer multiples of q as size.
+        safe_devices: These devices are considered safe to run
+            maximization on, cf. :meth:`create_tensor_checker`.
 
-    :return:
+    Returns:
         A decorator for functions.
     """
     maybe_warn: Callable[..., None] = create_tensor_checker(safe_devices=safe_devices)
@@ -395,16 +388,14 @@ class KeyHasher:
 
     @staticmethod
     def normalize_keys(keys: Collection[str] | str | None) -> Collection[str]:
-        """
-        Normalize keys to be a collection of strings.
+        """Normalize keys to be a collection of strings.
 
-        :param keys:
-            the keys
+        Args:
+            keys: the keys
 
-        :return:
-            - if keys is None, the empty list
-            - if keys is a string, a singleton list
-            - else the keys
+        Returns:
+            - if keys is None, the empty list - if keys is a string, a
+            singleton list - else the keys
         """
         if keys is None:
             return []
@@ -413,23 +404,23 @@ class KeyHasher:
         return keys
 
     def __init__(self, keys: Collection[str] | str | None) -> None:
-        """
-        Initialize the hasher.
+        """Initialize the hasher.
 
-        :param keys:
-            the keys whose associated values should be used for hashing
+        Args:
+            keys: the keys whose associated values should be used for
+                hashing
         """
         self.keys = self.normalize_keys(keys)
 
     def __call__(self, kwargs: Mapping[str, Any]) -> int:
-        """
-        Calculate the hash based on the values associated with the selected keys.
+        """Calculate the hash based on the values associated with the selected keys.
 
-        :param kwargs:
-            the key-value dictionary
+        Args:
+            kwargs: the key-value dictionary
 
-        :return:
-            the hash of the tuple of values associated with the stored keys.
+        Returns:
+            the hash of the tuple of values associated with the stored
+            keys.
         """
         return hash(tuple(kwargs.get(key, None) for key in self.keys))
 
@@ -445,19 +436,17 @@ class MemoryUtilizationMaximizer:
         hasher: Callable[[Mapping[str, Any]], int] | None = None,
         keys: Collection[str] | str | None = None,
     ) -> None:
-        """
-        Initialize the stateful maximizer.
+        """Initialize the stateful maximizer.
 
-        :param parameter_name:
-            The parameter name.
-        :param q:
-            Prefer multiples of q as size.
-        :param safe_devices:
-            These devices are considered safe to run maximization on, cf. :meth:`create_tensor_checker`.
-        :param hasher:
-            a hashing function for separate parameter values depending on hash value; if None, use the same for all
-        :param keys:
-            the keys to use for creating a hasher. Only used if hasher is None.
+        Args:
+            parameter_name: The parameter name.
+            q: Prefer multiples of q as size.
+            safe_devices: These devices are considered safe to run
+                maximization on, cf. :meth:`create_tensor_checker`.
+            hasher: a hashing function for separate parameter values
+                depending on hash value; if None, use the same for all
+            keys: the keys to use for creating a hasher. Only used if
+                hasher is None.
         """
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
         self.safe_devices = safe_devices
