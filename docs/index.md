@@ -18,47 +18,7 @@ your use case by looking at the different pages.
 
 
 ## Project Overview
-Assume you have a function for batched computation of nearest neighbors using brute-force distance calculation, e.g.,
-```python
-import torch
 
-def knn(x, y, batch_size, k: int = 3):
-    return torch.cat(
-        [
-            torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
-            for start in range(0, x.shape[0], batch_size)
-        ],
-        dim=0,
-    )
-```
-
-
-Using `maximize_memory_utilization` you can decorate this function to reduce the batch size until no more
-out-of-memory error occurs.
-
-```python
-
-import torch
-from torch_max_mem import maximize_memory_utilization
-
-@maximize_memory_utilization()
-def knn(x, y, batch_size, k: int = 3):
-    return torch.cat(
-        [
-            torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
-            for start in range(0, x.shape[0], batch_size)
-        ],
-        dim=0,
-    )
-```
-
-In the code, you can now always pass the largest sensible batch size, e.g.,
-
-```python
-x = torch.rand(100, 100, device="cuda")
-y = torch.rand(200, 100, device="cuda")
-knn(x, y, batch_size=x.shape[0])
-```
 
 ## Acknowledgements
 

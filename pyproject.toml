@@ -50,15 +50,7 @@ dependencies = [
 
 [project.optional-dependencies]
 tests = ["pytest", "coverage"]
-docs = [
-    # Sphinx >= 8.0 not supported by rtd theme, cf. https://github.com/readthedocs/sphinx_rtd_theme/issues/1582
-    "sphinx<8",
-    "sphinx-rtd-theme",
-    "sphinx_automodapi",
-    # To include LaTeX comments easily in your docs.
-    # If you uncomment this, don't forget to do the same in docs/conf.py
-    # texext
-]
+docs = ["mkdocs"]
 
 [project.urls]
 Homepage = "https://github.com/mberr/torch-max-mem"
