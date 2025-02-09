@@ -29,7 +29,11 @@ class TestDecorator(unittest.TestCase):
     """Test the decorator."""
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    rng = torch.random.manual_seed(seed=42)
+
+    @property
+    def rng(self) -> torch.Generator:
+        """Return the random number generator."""
+        return torch.Generator(device=self.device).manual_seed(42)
 
     def test_knn(self):
         """Test consistent results between original and wrapped method."""
@@ -65,7 +69,7 @@ def test_parameter_types():
 
 
 @pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
-def test_key_hasher(keys: Optional[tuple[str]]):
+def test_key_hasher(keys: Optional[tuple[str, ...]]):
     """Test ad-hoc hasher."""
 
     def func(a, b, c, batch_size: int):
@@ -171,4 +175,15 @@ def test_large_on_mps():
     x = torch.rand(100000, 100, device="mps")
     y = torch.rand(200000, 100, device="mps")
     _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
+    assert batch_size > 0
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA support.")
+def test_large_on_cuda():
+    """Test memory optimization on a large input."""
+    x = torch.rand(32_000, 100, device="cuda")
+    y = torch.rand(200_000, 100, device="cuda")
+    _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
+    assert batch_size < x.shape[0], "test example was too small"
     assert batch_size > 0
