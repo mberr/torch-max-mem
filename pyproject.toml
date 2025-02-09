@@ -23,10 +23,11 @@ classifiers = [
     "Framework :: tox",
     "Framework :: Sphinx",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3 :: Only",
     # TODO add your topics from the Trove controlled vocabulary (see https://pypi.org/classifiers)
 ]
@@ -41,23 +42,22 @@ keywords = [
 # See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license
 license = { file = "License" }
 
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "torch>=2.0",
-    "torch<2.4; platform_system=='Windows'",
     "typing_extensions",
 ]
 
 [project.optional-dependencies]
-tests = ["pytest", "coverage"]
+tests = [
+    "pytest",
+    "coverage[toml]",
+    "numpy",  # optionally used for csrc tensors
+]
 docs = [
-    # Sphinx >= 8.0 not supported by rtd theme, cf. https://github.com/readthedocs/sphinx_rtd_theme/issues/1582
-    "sphinx<8",
+    "sphinx>=8",
     "sphinx-rtd-theme",
     "sphinx_automodapi",
-    # To include LaTeX comments easily in your docs.
-    # If you uncomment this, don't forget to do the same in docs/conf.py
-    # texext
 ]
 
 [project.urls]
@@ -104,17 +104,6 @@ exclude_lines = [
     "def __repr__",
 ]
 
-[tool.black]
-line-length = 120
-target-version = ["py38", "py39", "py310", "py311", "py312"]
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 120
-include_trailing_comma = true
-reverse_relative = true
-
 [tool.ruff]
 line-length = 120
 
@@ -133,7 +122,7 @@ extend-select = [
     "B",   # bugbear
     "T20", # print
     "PT",  # pytest-style
-    "RSE", #raise
+    "RSE", # raise
     "SIM", # simplify
     "ERA", # eradicate commented out code
     "NPY", # numpy checks

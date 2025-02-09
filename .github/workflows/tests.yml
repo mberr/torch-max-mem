@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.8", "3.11" ]
+        python-version: [ "3.9", "3.13" ]
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.11" ]
+        python-version: [ "3.12" ]
     steps:
     - uses: actions/checkout@v4
     
@@ -64,11 +64,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, windows-latest, macos-latest ]
-        python-version: [ "3.8", "3.11" ]
-        exclude:
-          # 3.8 is not available for M1 macOS
-          - os: macos-14
-            python-version: "3.8"
+        python-version: [ "3.9", "3.13" ]
     needs:
       - lint
     steps:
