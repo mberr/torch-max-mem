@@ -69,7 +69,7 @@ def test_parameter_types():
 
 
 @pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
-def test_key_hasher(keys: Optional[tuple[str]]):
+def test_key_hasher(keys: Optional[tuple[str, ...]]):
     """Test ad-hoc hasher."""
 
     def func(a, b, c, batch_size: int):
