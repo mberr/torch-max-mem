@@ -45,14 +45,12 @@ license = { file = "License" }
 requires-python = ">=3.9"
 dependencies = [
     "torch>=2.0",
-    # "torch<2.4; platform_system=='Windows'",
     "typing_extensions",
 ]
 
 [project.optional-dependencies]
-tests = ["pytest", "coverage"]
+tests = ["pytest", "coverage[toml]"]
 docs = [
-    # Sphinx >= 8.0 not supported by rtd theme, cf. https://github.com/readthedocs/sphinx_rtd_theme/issues/1582
     "sphinx>=8",
     "sphinx-rtd-theme",
     "sphinx_automodapi",
