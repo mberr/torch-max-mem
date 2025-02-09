@@ -52,7 +52,6 @@ dependencies = [
 tests = [
     "pytest",
     "coverage[toml]",
-    "numpy",  # optionally used for csrc tensors
 ]
 docs = [
     "sphinx>=8",
