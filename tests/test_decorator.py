@@ -29,7 +29,11 @@ class TestDecorator(unittest.TestCase):
     """Test the decorator."""
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    rng = torch.random.manual_seed(seed=42)
+
+    @property
+    def rng(self) -> torch.Generator:
+        """Return the random number generator."""
+        return torch.Generator(device=self.device).manual_seed(42)
 
     def test_knn(self):
         """Test consistent results between original and wrapped method."""
