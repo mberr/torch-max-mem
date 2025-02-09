@@ -1,7 +1,7 @@
 """Tests."""
 
 import unittest
-from typing import Optional, Tuple
+from typing import Optional
 
 import pytest
 import torch
@@ -65,7 +65,7 @@ def test_parameter_types():
 
 
 @pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
-def test_key_hasher(keys: Optional[Tuple[str]]):
+def test_key_hasher(keys: Optional[tuple[str]]):
     """Test ad-hoc hasher."""
 
     def func(a, b, c, batch_size: int):
@@ -154,7 +154,7 @@ def test_oom_error_detection(error: BaseException, exp: bool) -> None:
     assert is_oom_error(error) is exp
 
 
-@pytest.mark.slow()
+@pytest.mark.slow
 def test_large_on_mps():
     """Test memory optimization on a large input."""
     import torch.backends.mps

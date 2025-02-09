@@ -51,14 +51,10 @@ import functools
 import inspect
 import itertools
 import logging
+from collections.abc import Collection, Iterable, Mapping, MutableMapping, Sequence
 from typing import (
     Any,
     Callable,
-    Collection,
-    Iterable,
-    Mapping,
-    MutableMapping,
-    Sequence,
     TypeVar,
 )
 
@@ -140,10 +136,10 @@ def determine_default_max_value(
 
 def determine_max_value(
     bound_arguments: inspect.BoundArguments,
-    args: P.args,
-    kwargs: P.kwargs,
     parameter_name: str,
     default_max_value: int | Callable[P, int] | None,
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> int:
     """
     Either use the provided value, or the default maximum value.
@@ -338,11 +334,11 @@ def maximize_memory_utilization_decorator(
             # determine actual max values
             max_values = [
                 determine_max_value(
-                    bound_arguments=bound_arguments,
-                    args=args,
-                    kwargs=kwargs,
-                    parameter_name=name,
-                    default_max_value=default_max_value,
+                    bound_arguments,
+                    name,
+                    default_max_value,
+                    *args,
+                    **kwargs,
                 )
                 for name, default_max_value in default_max_values.items()
             ]
