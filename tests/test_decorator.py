@@ -176,3 +176,14 @@ def test_large_on_mps():
     y = torch.rand(200000, 100, device="mps")
     _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
     assert batch_size > 0
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA support.")
+def test_large_on_cuda():
+    """Test memory optimization on a large input."""
+    x = torch.rand(32_000, 100, device="cuda")
+    y = torch.rand(200_000, 100, device="cuda")
+    _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
+    assert batch_size < x.shape[0], "test example was too small"
+    assert batch_size > 0
