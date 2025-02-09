@@ -168,7 +168,7 @@ def test_large_on_mps():
     y = torch.rand(80_000, 100, device="mps")
     _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
     assert batch_size > 0
-    assert batch_size < x.shape[0]
+    assert batch_size < x.shape[0], "test example was too small"
 
 
 @pytest.mark.slow
