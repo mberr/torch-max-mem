@@ -159,19 +159,16 @@ def test_oom_error_detection(error: BaseException, exp: bool) -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="Requires MPS support.")
 def test_large_on_mps():
     """Test memory optimization on a large input."""
-    import torch.backends.mps
-
-    if not torch.backends.mps.is_available():
-        pytest.skip("Cannot run on CPU")
-
     # note: torch.cdist calculates the pairwise distances, so its output has shape x.shape[0] * y.shape[0]
     # On MPS, it will run into a SEGFAULT when this exceeds int32, so we use a small enough input here
     x = torch.rand(50_000, 100, device="mps")
     y = torch.rand(80_000, 100, device="mps")
     _result, (batch_size,) = wrapped_knn(x, y, batch_size=x.shape[0])
     assert batch_size > 0
+    assert batch_size < x.shape[0]
 
 
 @pytest.mark.slow
