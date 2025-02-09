@@ -49,7 +49,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-tests = ["pytest", "coverage[toml]"]
+tests = [
+    "pytest",
+    "coverage[toml]",
+    "numpy",  # needed for csrc tensors?
+]
 docs = [
     "sphinx>=8",
     "sphinx-rtd-theme",
