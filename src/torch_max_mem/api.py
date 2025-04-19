@@ -7,6 +7,7 @@ Assume you have a function for batched computation of nearest neighbors using br
 
     import torch
 
+
     def knn(x, y, batch_size, k: int = 3):
         return torch.cat(
             [
@@ -23,6 +24,7 @@ out-of-memory error occurs.
 
     import torch
     from torch_max_mem import maximize_memory_utilization
+
 
     @maximize_memory_utilization()
     def knn(x, y, batch_size, k: int = 3):
