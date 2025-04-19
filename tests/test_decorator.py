@@ -1,7 +1,7 @@
 """Tests."""
 
 import unittest
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 import torch
@@ -10,7 +10,7 @@ from torch_max_mem import maximize_memory_utilization
 from torch_max_mem.api import floor_to_nearest_multiple_of, is_oom_error, maximize_memory_utilization_decorator
 
 
-def knn(x, y, batch_size, k: int = 3) -> torch.Tensor:
+def knn(x: torch.Tensor, y: torch.Tensor, batch_size: int, k: int = 3) -> torch.Tensor:
     """Compute k-nearst neigbors via batched brute-force distance calculation."""
     return torch.cat(
         [
@@ -60,11 +60,11 @@ def test_parameter_types() -> None:
     """Test decoration for various parameter types."""
 
     @maximize_memory_utilization()
-    def positional_or_keyword_only_func(a, batch_size: int) -> None:
+    def positional_or_keyword_only_func(a: Any, batch_size: int) -> None:
         """Evaluate a function where batch_size is a positional or keyword parameter."""
 
     @maximize_memory_utilization()
-    def keyword_only_func(*a, batch_size: int) -> None:
+    def keyword_only_func(*a: Any, batch_size: int) -> None:
         """Evaluate a function where batch_size is a keyword-only parameter."""
 
 
@@ -72,7 +72,7 @@ def test_parameter_types() -> None:
 def test_key_hasher(keys: Optional[tuple[str, ...]]) -> None:
     """Test ad-hoc hasher."""
 
-    def func(a, b, c, batch_size: int) -> None:
+    def func(a: Any, b: Any, c: Any, batch_size: int) -> None:
         """Test function."""
         pass
 
