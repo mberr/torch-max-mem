@@ -8,9 +8,8 @@ This project uses the [GitHub Flow](https://guides.github.com/introduction/flow)
 model for code contributions. Follow these steps:
 
 1. [Create a fork](https://help.github.com/articles/fork-a-repo) of the upstream
-   repository at
-   [`mberr/torch-max-mem`](https://github.com/mberr/torch-max-mem) on your
-   GitHub account (or in one of your organizations)
+   repository at [`mberr/torch-max-mem`](https://github.com/mberr/torch-max-mem)
+   on your GitHub account (or in one of your organizations)
 2. [Clone your fork](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
    with `git clone https://github.com/<your namespace here>/torch-max-mem.git`
 3. Make and commit changes to your fork with `git commit`

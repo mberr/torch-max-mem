@@ -8,7 +8,6 @@
   torch-max-mem
 </h1>
 
-
 <p align="center">
     <a href="https://github.com/mberr/torch-max-mem/actions/workflows/tests.yml">
         <img alt="Tests" src="https://github.com/mberr/torch-max-mem/actions/workflows/tests.yml/badge.svg" /></a>
@@ -34,11 +33,14 @@
     -->
 </p>
 
-This package provides decorators for memory utilization maximization with PyTorch and CUDA by starting with a maximum parameter size and applying successive halving until no more out-of-memory exception occurs.
+This package provides decorators for memory utilization maximization with
+PyTorch and CUDA by starting with a maximum parameter size and applying
+successive halving until no more out-of-memory exception occurs.
 
 ## 💪 Getting Started
 
-Assume you have a function for batched computation of nearest neighbors using brute-force distance calculation.
+Assume you have a function for batched computation of nearest neighbors using
+brute-force distance calculation.
 
 ```python
 import torch
@@ -53,7 +55,8 @@ def knn(x, y, batch_size, k: int = 3):
     )
 ```
 
-With `torch_max_mem` you can decorate this function to reduce the batch size until no more out-of-memory error occurs.
+With `torch_max_mem` you can decorate this function to reduce the batch size
+until no more out-of-memory error occurs.
 
 ```python
 import torch
@@ -115,8 +118,9 @@ for more information on getting involved.
 
 ## 👋 Attribution
 
-Parts of the logic have been developed with [Laurent Vermue](https://github.com/lvermue) for [PyKEEN](https://github.com/pykeen/pykeen).
-
+Parts of the logic have been developed with
+[Laurent Vermue](https://github.com/lvermue) for
+[PyKEEN](https://github.com/pykeen/pykeen).
 
 ### ⚖️ License
 
@@ -236,8 +240,8 @@ to each release of your package.
 
 After these steps, you're ready to go! After you make "release" on GitHub (steps
 for this are below), you can navigate to
-https://zenodo.org/account/settings/github/repository/mberr/torch-max-mem to
-see the DOI for the release and link to the Zenodo record for it.
+https://zenodo.org/account/settings/github/repository/mberr/torch-max-mem to see
+the DOI for the release and link to the Zenodo record for it.
 
 #### Registering with the Python Package Index (PyPI)
 
