@@ -348,7 +348,7 @@ def maximize_memory_utilization_decorator(
 
             while i < len(max_values):
                 while max_values[i] > 0:
-                    p_kwargs = {name: max_value for name, max_value in zip(parameter_names, max_values)}
+                    p_kwargs = dict(zip(parameter_names, max_values))
                     # note: changes to arguments apply to both, .args and .kwargs
                     bound_arguments.arguments.update(p_kwargs)
                     try:
@@ -456,7 +456,7 @@ class MemoryUtilizationMaximizer:
         """
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
         self.safe_devices = safe_devices
-        self.parameter_value: MutableMapping[int, tuple[int, ...]] = dict()
+        self.parameter_value: MutableMapping[int, tuple[int, ...]] = {}
         if hasher is None:
             keys = KeyHasher.normalize_keys(keys)
             intersection = set(keys).intersection(self.parameter_names)
