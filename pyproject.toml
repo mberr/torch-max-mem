@@ -117,7 +117,7 @@ exclude_lines = [
 ]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
@@ -153,6 +153,8 @@ ignore = [
 "docs/source/conf.py" = ["ERA001"]
 # Prints are okay in notebooks
 "notebooks/**/*.ipynb" = ["T201"]
+# Ignore asserts in tests (with pytest)
+"tests/**/*.py" = ["S101"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
