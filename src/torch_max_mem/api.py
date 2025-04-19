@@ -265,9 +265,8 @@ def is_oom_error(error: BaseException) -> bool:
         return True
     if not isinstance(error, RuntimeError):
         return False
-    if not error.args:
-        return False
-    return any(infix in error.args[0] for infix in ADDITIONAL_OOM_ERROR_INFIXES)
+    message = str(error)
+    return any(infix in message for infix in ADDITIONAL_OOM_ERROR_INFIXES)
 
 
 def maximize_memory_utilization_decorator(
