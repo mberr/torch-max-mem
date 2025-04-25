@@ -1,0 +1,31 @@
+{
+  "template": "https://github.com/cthoyt/cookiecutter-snekpack",
+  "commit": "9bad1ea3f001d8630c8a6e54fffc7d8d0f3e7b42",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "package_name": "torch_max_mem",
+      "package_name_stylized": "Torch Max Mem",
+      "short_description": "Maximize memory utilization with PyTorch.",
+      "author_name": "Max Berrendorf",
+      "author_github": "mberr",
+      "author_email": "max.berrendorf@gmail.com",
+      "github_organization_name": "mberr",
+      "github_repository_name": "torch-max-mem",
+      "command_line_interface": false,
+      "gitlab": false,
+      "runner": "tox",
+      "__not_charlie": "true",
+      "__runner": "tox -e",
+      "__runner_uv": "--with tox-uv tox -e",
+      "__runner_pip": "tox tox-uv",
+      "__runner_install_uv": "uv tool install tox --with tox-uv",
+      "__runner_install_pip": "python3 -m pip install tox tox-uv",
+      "__runner_tests": "py",
+      "__gh_slug": "mberr/torch-max-mem",
+      "_template": "https://github.com/cthoyt/cookiecutter-snekpack",
+      "_commit": "9bad1ea3f001d8630c8a6e54fffc7d8d0f3e7b42"
+    }
+  },
+  "directory": null
+}

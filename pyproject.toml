@@ -1,13 +1,12 @@
-# See https://setuptools.readthedocs.io/en/latest/build_meta.html
 [build-system]
-requires = ["setuptools", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.6.6,<0.7"]
+build-backend = "uv_build"
 
 [project]
 name = "torch_max_mem"
-version = "0.1.4-dev"
+version = "0.1.5-dev"
 description = "Maximize memory utilization with PyTorch."
-# Author information
+readme = "README.md"
 authors = [{ name = "Max Berrendorf", email = "max.berrendorf@gmail.com" }]
 maintainers = [{ name = "Max Berrendorf", email = "max.berrendorf@gmail.com" }]
 
@@ -37,27 +36,44 @@ keywords = [
     "torch",
 ]
 
-# License Information. This can be any valid SPDX identifiers that can be resolved
-# with URLs like https://spdx.org/licenses/MIT
-# See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license
-license = { file = "License" }
+# License Information.
+# See PEP-639 at https://peps.python.org/pep-0639/#add-license-files-key
+license-files = ["LICENSE"]
 
 requires-python = ">=3.9"
-dependencies = [
-    "torch>=2.0",
-    "typing_extensions",
-]
+dependencies = ["torch>=2.0", "typing_extensions"]
 
-[project.optional-dependencies]
-tests = [
-    "pytest",
-    "coverage[toml]",
-]
+# see https://peps.python.org/pep-0735/ and https://docs.astral.sh/uv/concepts/dependencies/#dependency-groups
+[dependency-groups]
+tests = ["pytest", "coverage[toml]"]
 docs = [
     "sphinx>=8",
-    "sphinx-rtd-theme",
+    "sphinx-rtd-theme>=3.0",
+    "sphinx-click",
     "sphinx_automodapi",
+    # Include if your project uses Pydantic:
+    # "autodoc_pydantic",
+    # To include LaTeX comments easily in your docs.
+    # If you uncomment this, don't forget to do the same in docs/conf.py
+    # texext
 ]
+lint = ["ruff"]
+typing = [
+    { include-group = "tests" },
+    "mypy",
+    # You will probably have to add additional type stubs here, especially if you're using tox-uv
+]
+docs-lint = [{ include-group = "docs" }, "doc8"]
+format-docs = [{ include-group = "docs" }, "docstrfmt"]
+doctests = ["xdoctest", "pygments"]
+pyroma = ["pyroma", "pygments"]
+# follow https://github.com/astral-sh/uv/issues/6298 for switching to a uv-based version bump workflow
+bump = ["bump-my-version"]
+build = ["uv", "uv-build"]
+release = [{ include-group = "build" }, "uv", "keyring"]
+
+# see https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#dependencies-optional-dependencies
+# [project.optional-dependencies]
 
 [project.urls]
 Homepage = "https://github.com/mberr/torch-max-mem"
@@ -65,30 +81,26 @@ Download = "https://github.com/mberr/torch-max-mem/releases"
 "Bug Tracker" = "https://github.com/mberr/torch-max-mem/issues"
 "Source Code" = "https://github.com/mberr/torch-max-mem"
 
-[project.readme]
-file = "README.md"
-content-type = "text/markdown"
-# URLs associated with the project
 
+[tool.cruft]
+skip = ["**/__init__.py", "tests/*"]
 
-[tool.setuptools]
-# Where is my code
-package-dir = { "" = "src" }
-
-[tool.setuptools.packages.find]
-# this implicitly sets `packages = ":find"`
-where = ["src"] # list of folders that contain the packages (["."] by default)
-
+# MyPy, see https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
 
 # Doc8, see https://doc8.readthedocs.io/en/stable/readme.html#ini-file-usage
 [tool.doc8]
 max-line-length = 120
 
+# Pytest, see https://docs.pytest.org/en/stable/reference/customize.html#pyproject-toml
+[tool.pytest.ini_options]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+
 # Coverage, see https://coverage.readthedocs.io/en/latest/config.html
 [tool.coverage.run]
 branch = true
 source = ["torch_max_mem"]
-omit = ["tests/*", "docs/*"]
+omit = ["tests/*", "docs/*", "src/torch_max_mem/version.py"]
 
 [tool.coverage.paths]
 source = ["src/torch_max_mem", ".tox/*/lib/python*/site-packages/torch_max_mem"]
@@ -98,13 +110,15 @@ show_missing = true
 exclude_lines = [
     "pragma: no cover",
     "raise NotImplementedError",
-    "if __name__ == .__main__.:",
+    "if __name__ == \"__main__\":",
+    "if TYPE_CHECKING:",
     "def __str__",
     "def __repr__",
 ]
 
 [tool.ruff]
 line-length = 120
+extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
 # See https://docs.astral.sh/ruff/rules
@@ -114,37 +128,74 @@ extend-select = [
     "W",   # pycodestyle warnings
     "C90", # mccabe
     "I",   # isort
-    "N",   # pep8 naming
-    "D",   # pydocstyle
     "UP",  # pyupgrade
-    "S",   # bandit
+    "D",   # pydocstyle
+    "DOC", # pydoclint
     "B",   # bugbear
+    "S",   # bandit
     "T20", # print
-    "PT",  # pytest-style
-    "RSE", # raise
-    "SIM", # simplify
+    "N",   # pep8 naming
     "ERA", # eradicate commented out code
     "NPY", # numpy checks
     "RUF", # ruff rules
+    "C4",  # comprehensions
 ]
-ignore = []
+ignore = [
+    "D105", # Missing docstring in magic method
+    "E203", # Black conflicts with the following
+]
 
 # See https://docs.astral.sh/ruff/settings/#per-file-ignores
 [tool.ruff.lint.per-file-ignores]
-# asserts in tests
+# Ignore security issues in the version.py, which are inconsistent
+"src/torch_max_mem/version.py" = ["S603", "S607"]
+# Ignore commented out code in Sphinx configuration file
+"docs/source/conf.py" = ["ERA001"]
+# Prints are okay in notebooks
+"notebooks/**/*.ipynb" = ["T201"]
+# Ignore asserts in tests (with pytest)
 "tests/**/*.py" = ["S101"]
-"docs/source/conf.py" = ["D100", "ERA001"]
-
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
 
 [tool.ruff.lint.isort]
-known-third-party = []
-known-first-party = ["torch_max_mem", "tests"]
 relative-imports-order = "closest-to-furthest"
+known-third-party = ["tqdm"]
+known-first-party = ["torch_max_mem", "tests"]
 
-# Pytest, see https://docs.pytest.org/en/stable/reference/customize.html#pyproject-toml
-[tool.pytest.ini_options]
-addopts = "--strict-markers"
-markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
+[tool.ruff.format]
+# see https://docs.astral.sh/ruff/settings/#format_docstring-code-format
+docstring-code-format = true
+
+[tool.bumpversion]
+current_version = "0.1.5-dev"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(?:-(?P<release>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+(?P<build>[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?"
+serialize = [
+    "{major}.{minor}.{patch}-{release}+{build}",
+    "{major}.{minor}.{patch}+{build}",
+    "{major}.{minor}.{patch}-{release}",
+    "{major}.{minor}.{patch}",
+]
+commit = true
+tag = false
+
+[tool.bumpversion.parts.release]
+optional_value = "production"
+first_value = "dev"
+values = ["dev", "production"]
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "docs/source/conf.py"
+search = "release = \"{current_version}\""
+replace = "release = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "src/torch_max_mem/version.py"
+search = "VERSION = \"{current_version}\""
+replace = "VERSION = \"{new_version}\""

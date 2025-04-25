@@ -1,0 +1,4 @@
+# see https://docs.codecov.com/v4.6/docs/codecov-yaml
+ignore:
+    - "src/torch_max_mem/__main__.py"
+    - "src/torch_max_mem/cli.py"

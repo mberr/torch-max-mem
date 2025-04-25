@@ -1,7 +1,7 @@
 """Tests."""
 
 import unittest
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 import torch
@@ -10,7 +10,7 @@ from torch_max_mem import maximize_memory_utilization
 from torch_max_mem.api import floor_to_nearest_multiple_of, is_oom_error, maximize_memory_utilization_decorator
 
 
-def knn(x, y, batch_size, k: int = 3):
+def knn(x: torch.Tensor, y: torch.Tensor, batch_size: int, k: int = 3) -> torch.Tensor:
     """Compute k-nearst neigbors via batched brute-force distance calculation."""
     return torch.cat(
         [
@@ -35,7 +35,7 @@ class TestDecorator(unittest.TestCase):
         """Return the random number generator."""
         return torch.Generator(device=self.device).manual_seed(42)
 
-    def test_knn(self):
+    def test_knn(self) -> None:
         """Test consistent results between original and wrapped method."""
         x = torch.rand(100, 100, device=self.device, generator=self.rng)
         y = torch.rand(200, 100, device=self.device, generator=self.rng)
@@ -45,7 +45,7 @@ class TestDecorator(unittest.TestCase):
             assert reference.shape == optimized.shape
             assert torch.allclose(reference, optimized)
 
-    def test_knn_stateful(self):
+    def test_knn_stateful(self) -> None:
         """Test consistent results between original and wrapped method for stateful wrapper."""
         x = torch.rand(100, 100, device=self.device, generator=self.rng)
         y = torch.rand(200, 100, device=self.device, generator=self.rng)
@@ -56,23 +56,23 @@ class TestDecorator(unittest.TestCase):
             assert torch.allclose(reference, optimized)
 
 
-def test_parameter_types():
+def test_parameter_types() -> None:
     """Test decoration for various parameter types."""
 
     @maximize_memory_utilization()
-    def positional_or_keyword_only_func(a, batch_size: int):
+    def positional_or_keyword_only_func(a: Any, batch_size: int) -> None:
         """Evaluate a function where batch_size is a positional or keyword parameter."""
 
     @maximize_memory_utilization()
-    def keyword_only_func(*a, batch_size: int):
+    def keyword_only_func(*a: Any, batch_size: int) -> None:
         """Evaluate a function where batch_size is a keyword-only parameter."""
 
 
 @pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
-def test_key_hasher(keys: Optional[tuple[str, ...]]):
+def test_key_hasher(keys: Optional[tuple[str, ...]]) -> None:
     """Test ad-hoc hasher."""
 
-    def func(a, b, c, batch_size: int):
+    def func(a: Any, b: Any, c: Any, batch_size: int) -> None:
         """Test function."""
         pass
 
@@ -80,22 +80,22 @@ def test_key_hasher(keys: Optional[tuple[str, ...]]):
     wrapped(a=1, b=3, c=7, batch_size=2)
 
 
-def test_default_no_arg():
+def test_default_no_arg() -> None:
     """Test decoration's interaction with default parameters."""
 
     @maximize_memory_utilization()
-    def func(batch_size: int = 7):
+    def func(batch_size: int = 7) -> None:
         """Test function."""
 
     # call with no arg
     func()
 
 
-def test_optimization():
+def test_optimization() -> None:
     """Test optimization."""
 
     @maximize_memory_utilization()
-    def func(batch_size: int = 8):
+    def func(batch_size: int = 8) -> int:
         """Test function."""
         if batch_size > 2:
             raise torch.cuda.OutOfMemoryError
@@ -104,11 +104,11 @@ def test_optimization():
     assert func() == 2
 
 
-def test_optimization_multi_level():
+def test_optimization_multi_level() -> None:
     """Test optimization with multiple levels."""
 
     @maximize_memory_utilization(parameter_name=("batch_size", "slice_size"))
-    def func(batch_size: int = 8, slice_size: int = 16):
+    def func(batch_size: int = 8, slice_size: int = 16) -> tuple[int, int]:
         """Test function."""
         if batch_size > 1 or slice_size > 8:
             raise torch.cuda.OutOfMemoryError
@@ -160,7 +160,7 @@ def test_oom_error_detection(error: BaseException, exp: bool) -> None:
 
 @pytest.mark.slow
 @pytest.mark.skipif(not torch.backends.mps.is_available(), reason="Requires MPS support.")
-def test_large_on_mps():
+def test_large_on_mps() -> None:
     """Test memory optimization on a large input."""
     # note: torch.cdist calculates the pairwise distances, so its output has shape x.shape[0] * y.shape[0]
     # On MPS, it will run into a SEGFAULT when this exceeds int32, so we use a small enough input here
@@ -173,7 +173,7 @@ def test_large_on_mps():
 
 @pytest.mark.slow
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA support.")
-def test_large_on_cuda():
+def test_large_on_cuda() -> None:
     """Test memory optimization on a large input."""
     x = torch.rand(32_000, 100, device="cuda")
     y = torch.rand(200_000, 100, device="cuda")
