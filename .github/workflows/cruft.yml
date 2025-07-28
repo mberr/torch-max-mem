@@ -41,7 +41,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Install Cruft
-        run: pip3 install cruft
+        run: uv tool install cruft
 
       - name: Check if update is available
         continue-on-error: false
