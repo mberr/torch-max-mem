@@ -1,0 +1,35 @@
+# Builds and publishes to PyPI using PyPI's Trusted Publishing (OIDC), so no
+# API token/secret needs to be stored in GitHub. This requires a trusted
+# publisher to be registered on the PyPI project settings for this repository
+# and workflow file - see https://docs.pypi.org/trusted-publishers/.
+#
+# Triggered by publishing a GitHub Release, which should point at the tag
+# created by `tox -e tag-release` (see README.md's "Making a Release" section).
+
+name: Release
+
+on:
+  release:
+    types: [ published ]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/torch_max_mem/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: ./.github/actions/setup-uv-python
+      - name: Build
+        run: uv build --sdist --wheel --no-build-isolation
+      - name: Publish to PyPI
+        run: uv publish
