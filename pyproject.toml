@@ -22,11 +22,11 @@ classifiers = [
     "Framework :: tox",
     "Framework :: Sphinx",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     # TODO add your topics from the Trove controlled vocabulary (see https://pypi.org/classifiers)
 ]
@@ -40,7 +40,7 @@ keywords = [
 # See PEP-639 at https://peps.python.org/pep-0639/#add-license-files-key
 license-files = ["LICENSE"]
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = ["torch>=2.0", "typing_extensions"]
 
 # see https://peps.python.org/pep-0735/ and https://docs.astral.sh/uv/concepts/dependencies/#dependency-groups
