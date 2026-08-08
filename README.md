@@ -325,15 +325,16 @@ This does the following:
 4. Click the big green "Publish Release" button
 
 Publishing the release triggers the `release.yml` workflow, which builds the
-package and uploads it to PyPI. It also triggers Zenodo to assign a DOI to
-your release.
+package and uploads it to PyPI. It also triggers Zenodo to assign a DOI to your
+release.
 
 #### One-time setup: registering the trusted publisher
 
 Before the first automated release, a repository maintainer needs to register
 this workflow as a trusted publisher on PyPI:
 
-1. On the [PyPI project page](https://pypi.org/manage/project/torch_max_mem/settings/publishing/)
+1. On the
+   [PyPI project page](https://pypi.org/manage/project/torch_max_mem/settings/publishing/)
    (or, for a brand new project, https://pypi.org/manage/account/publishing/),
    add a new GitHub publisher with:
    - Owner: `mberr`
@@ -343,9 +344,9 @@ this workflow as a trusted publisher on PyPI:
 2. Optionally, create a `pypi` environment under the repository's Settings ->
    Environments with required reviewers, so publishing needs manual approval.
 
-The manual, credential-based release commands (`tox -e finish`, `tox -e
-release`, `tox -e release-via-env`) are still available below as a fallback if
-needed.
+The manual, credential-based release commands (`tox -e finish`,
+`tox -e release`, `tox -e release-via-env`) are still available below as a
+fallback if needed.
 
 #### Uploading to PyPI manually
 
