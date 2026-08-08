@@ -18,54 +18,67 @@ on:
 
 jobs:
   lint:
-    name: Code Quality
+    name: Lint
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # lint/pyroma only inspect static config and source text, so their result
-        # is the same regardless of interpreter version; only run them once.
-        # mypy's output does depend on the Python version's typeshed stubs, so
-        # it is checked across the full supported range.
-        include:
-          - python-version: "3.14"
-            tox-command: "lint"
-          - python-version: "3.14"
-            tox-command: "pyroma"
-          - python-version: "3.14"
-            tox-command: "mypy"
-          - python-version: "3.10"
-            tox-command: "mypy"
     steps:
-      - uses: actions/checkout@v4
-      - name: "Install uv"
-        uses: "astral-sh/setup-uv@v3"
-        with:
-          enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
-      - name: "Run command"
-        run: |
-          uvx -p ${{ matrix.python-version }} --with tox-uv tox -e ${{ matrix.tox-command }}
+      - uses: ./.github/actions/setup-uv-python
+      - name: Run ruff
+        run: uvx -p 3.14 --with tox-uv tox -e lint
 
-  docs:
-    name: Documentation
+  pyroma:
+    name: Pyroma
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-uv-python
+      - name: Run pyroma
+        run: uvx -p 3.14 --with tox-uv tox -e pyroma
+
+  mypy:
+    name: Mypy
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # We only test documentation on the latest version
-        tox-command: [ "docs-lint", "docstr-coverage", "docs-test", "lint-markdown" ]
+        # mypy's output depends on the Python version's typeshed stubs,
+        # so it is checked across the full supported range
+        python-version: [ "3.14", "3.10" ]
     steps:
-      - uses: actions/checkout@v4
-      - name: "Install uv"
-        uses: "astral-sh/setup-uv@v3"
-        with:
-          enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
+      - uses: ./.github/actions/setup-uv-python
+      - name: Run mypy
+        run: uvx -p ${{ matrix.python-version }} --with tox-uv tox -e mypy
+
+  docs-lint:
+    name: "Docs: Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-uv-python
+      - name: Lint documentation
+        run: uvx -p 3.14 --with tox-uv tox -e docs-lint
+
+  docstr-coverage:
+    name: "Docs: Docstring Coverage"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-uv-python
+      - name: Check docstring coverage
+        run: uvx -p 3.14 --with tox-uv tox -e docstr-coverage
+
+  docs-test:
+    name: "Docs: Build"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-uv-python
       - name: Install graphviz
-        # only the Sphinx build needs it
-        if: matrix.tox-command == 'docs-test'
         run: sudo apt-get install graphviz
-      - name: "Run command"
-        run: uvx -p 3.14 --with tox-uv tox -e ${{ matrix.tox-command }}
+      - name: Check documentation build with Sphinx
+        run: uvx -p 3.14 --with tox-uv tox -e docs-test
+
+  lint-markdown:
+    name: "Docs: Lint Markdown"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup-uv-python
+      - name: Lint markdown
+        run: uvx -p 3.14 --with tox-uv tox -e lint-markdown
 
   tests:
     name: Tests
@@ -74,12 +87,7 @@ jobs:
       matrix:
         python-version: [ "3.14", "3.10" ]
     steps:
-      - uses: actions/checkout@v4
-      - name: "Install uv"
-        uses: "astral-sh/setup-uv@v3"
-        with:
-          enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
+      - uses: ./.github/actions/setup-uv-python
       - name: Test with pytest and generate coverage file
         run:
           uvx -p ${{ matrix.python-version }} --with tox-uv tox -e py
