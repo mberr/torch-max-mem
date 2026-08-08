@@ -89,9 +89,13 @@ jobs:
 
   tests:
     name: Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+          - windows-latest
         python-version: [ "3.14", "3.10" ]
     steps:
       - uses: actions/checkout@v4
