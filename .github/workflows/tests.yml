@@ -4,9 +4,11 @@
 
 name: Tests
 
-# by default, give the GITHUB_TOKEN no permissions
+# by default, give the GITHUB_TOKEN read-only access to the repository contents,
+# which is the only permission any job below requires
 # See https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/controlling-permissions-for-github_token
-permissions: { }
+permissions:
+  contents: read
 
 on:
   push:
@@ -17,11 +19,6 @@ on:
 jobs:
   lint:
     name: Code Quality
-    permissions:
-      # give only read-only access to the contents of the repository
-      # this is the only permission this job requires, so keep it to the least privilege
-      # i.e., not to issues, discussions, actions, etc.
-      contents: read
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -51,13 +48,11 @@ jobs:
 
   docs:
     name: Documentation
-    permissions:
-      contents: read
     runs-on: ubuntu-latest
     strategy:
       matrix:
         # We only test documentation on the latest version
-        python-version: [ "3.14" ]
+        tox-command: [ "docs-lint", "docstr-coverage", "docs-test", "lint-markdown" ]
     steps:
       - uses: actions/checkout@v4
       - name: "Install uv"
@@ -65,26 +60,18 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
-      - name: Install dependencies
-        run: |
-          sudo apt-get install graphviz
-      - name: Lint documentation
-        run: uvx -p ${{ matrix.python-version }} --with tox-uv tox -e docs-lint
-      - name: Check docstring coverage
-        run: uvx -p ${{ matrix.python-version }} --with tox-uv tox -e docstr-coverage
-      - name: Check documentation build with Sphinx
-        run: uvx -p ${{ matrix.python-version }} --with tox-uv tox -e docs-test
-      - name: Lint markdown
-        run: uvx -p ${{ matrix.python-version }} --with tox-uv tox -e lint-markdown
+      - name: Install graphviz
+        # only the Sphinx build needs it
+        if: matrix.tox-command == 'docs-test'
+        run: sudo apt-get install graphviz
+      - name: "Run command"
+        run: uvx -p 3.14 --with tox-uv tox -e ${{ matrix.tox-command }}
 
   tests:
     name: Tests
-    permissions:
-      contents: read
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
         python-version: [ "3.14", "3.10" ]
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +88,6 @@ jobs:
           uvx -p ${{ matrix.python-version }} --with tox-uv tox -e doctests
       - name: Upload coverage report to codecov
         uses: codecov/codecov-action@v4
-        if: success()
         with:
           file: coverage.xml
 
