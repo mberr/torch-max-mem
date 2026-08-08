@@ -25,8 +25,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.14", "3.10" ]
-        tox-command: [ "lint", "pyroma", "mypy" ]
+        # lint/pyroma only inspect static config and source text, so their result
+        # is the same regardless of interpreter version; only run them once.
+        # mypy's output does depend on the Python version's typeshed stubs, so
+        # it is checked across the full supported range.
+        include:
+          - python-version: "3.14"
+            tox-command: "lint"
+          - python-version: "3.14"
+            tox-command: "pyroma"
+          - python-version: "3.14"
+            tox-command: "mypy"
+          - python-version: "3.10"
+            tox-command: "mypy"
     steps:
       - uses: actions/checkout@v4
       - name: "Install uv"

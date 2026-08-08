@@ -45,6 +45,7 @@ brute-force distance calculation.
 ```python
 import torch
 
+
 def knn(x, y, batch_size, k: int = 3):
     return torch.cat(
         [
