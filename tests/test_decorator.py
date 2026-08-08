@@ -1,7 +1,7 @@
 """Tests."""
 
 import unittest
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 import torch
@@ -69,12 +69,11 @@ def test_parameter_types() -> None:
 
 
 @pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
-def test_key_hasher(keys: Optional[tuple[str, ...]]) -> None:
+def test_key_hasher(keys: tuple[str, ...] | None) -> None:
     """Test ad-hoc hasher."""
 
     def func(a: Any, b: Any, c: Any, batch_size: int) -> None:
         """Test function."""
-        pass
 
     wrapped = maximize_memory_utilization(keys=keys)(func)
     wrapped(a=1, b=3, c=7, batch_size=2)

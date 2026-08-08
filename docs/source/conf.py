@@ -13,14 +13,14 @@ root, use ``os.path.abspath`` to make it absolute, like shown here.
 import os
 import re
 import sys
-from datetime import date
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.abspath("../../src"))
 
 # -- Project information -----------------------------------------------------
 
 project = "torch_max_mem"
-copyright = f"{date.today().year}, Max Berrendorf"
+copyright = f"{datetime.now(tz=timezone.utc).date().year}, Max Berrendorf"
 author = "Max Berrendorf"
 
 # The full version, including alpha/beta/rc tags.

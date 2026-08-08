@@ -53,10 +53,9 @@ import functools
 import inspect
 import itertools
 import logging
-from collections.abc import Collection, Iterable, Mapping, MutableMapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, MutableMapping, Sequence
 from typing import (
     Any,
-    Callable,
     TypeVar,
 )
 
@@ -350,7 +349,7 @@ def maximize_memory_utilization_decorator(
 
             while i < len(max_values):
                 while max_values[i] > 0:
-                    p_kwargs = dict(zip(parameter_names, max_values))
+                    p_kwargs = dict(zip(parameter_names, max_values, strict=False))
                     # note: changes to arguments apply to both, .args and .kwargs
                     bound_arguments.arguments.update(p_kwargs)
                     try:
@@ -358,7 +357,7 @@ def maximize_memory_utilization_decorator(
                     except (torch.cuda.OutOfMemoryError, RuntimeError) as error:
                         # raise errors unrelated to out-of-memory
                         if not is_oom_error(error):
-                            raise error
+                            raise
 
                         # clear cache
                         if torch.cuda.is_available():
@@ -490,7 +489,7 @@ class MemoryUtilizationMaximizer:
                 bound.apply_defaults()
                 # todo: default logic?
                 values = tuple(bound.arguments[name] for name in self.parameter_names)
-            kwargs.update(zip(self.parameter_names, values))
+            kwargs.update(zip(self.parameter_names, values, strict=False))
             result, self.parameter_value[h] = wrapped(*args, **kwargs)
             return result
 
