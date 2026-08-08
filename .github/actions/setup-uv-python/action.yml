@@ -1,9 +1,8 @@
-name: "Checkout and install uv"
-description: "Checks out the repository and installs uv with dependency caching"
+name: "Install uv"
+description: "Installs uv with dependency caching. Run actions/checkout before this step."
 runs:
   using: "composite"
   steps:
-    - uses: actions/checkout@v4
     - name: "Install uv"
       uses: "astral-sh/setup-uv@v3"
       with:

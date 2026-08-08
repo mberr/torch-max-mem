@@ -21,6 +21,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Run ruff
         run: uvx -p 3.14 --with tox-uv tox -e lint
@@ -29,6 +30,7 @@ jobs:
     name: Pyroma
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Run pyroma
         run: uvx -p 3.14 --with tox-uv tox -e pyroma
@@ -42,6 +44,7 @@ jobs:
         # so it is checked across the full supported range
         python-version: [ "3.14", "3.10" ]
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Run mypy
         run: uvx -p ${{ matrix.python-version }} --with tox-uv tox -e mypy
@@ -50,6 +53,7 @@ jobs:
     name: "Docs: Lint"
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Lint documentation
         run: uvx -p 3.14 --with tox-uv tox -e docs-lint
@@ -58,6 +62,7 @@ jobs:
     name: "Docs: Docstring Coverage"
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Check docstring coverage
         run: uvx -p 3.14 --with tox-uv tox -e docstr-coverage
@@ -66,6 +71,7 @@ jobs:
     name: "Docs: Build"
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Install graphviz
         run: sudo apt-get install graphviz
@@ -76,6 +82,7 @@ jobs:
     name: "Docs: Lint Markdown"
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Lint markdown
         run: uvx -p 3.14 --with tox-uv tox -e lint-markdown
@@ -87,6 +94,7 @@ jobs:
       matrix:
         python-version: [ "3.14", "3.10" ]
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-uv-python
       - name: Test with pytest and generate coverage file
         run:
