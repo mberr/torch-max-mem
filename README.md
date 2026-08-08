@@ -287,30 +287,32 @@ Note that this deprecates previous workflows using `.pypirc`.
 
 ### 📦 Making a Release
 
-#### Uploading to PyPI
+Publishing to PyPI happens automatically via the
+[`release.yml`](.github/workflows/release.yml) GitHub Actions workflow, using
+PyPI's [Trusted Publishing](https://docs.pypi.org/trusted-publishers/) (OIDC).
+No API token needs to be stored anywhere - the workflow only needs to be
+triggered by tagging and publishing a GitHub release.
+
+#### Tagging the release
 
 After installing the package in development mode and installing `tox` with
 `uv tool install tox --with tox-uv` or `python3 -m pip install tox tox-uv`, run
 the following from the console:
 
 ```console
-tox -e finish
+tox -e tag-release
 ```
 
-This script does the following:
+This does the following:
 
 1. Uses [bump-my-version](https://github.com/callowayproject/bump-my-version) to
    switch the version number in the `pyproject.toml`, `CITATION.cff`,
    `src/torch_max_mem/version.py`, and
    [`docs/source/conf.py`](docs/source/conf.py) to not have the `-dev` suffix
-2. Packages the code in both a tar archive and a wheel using
-   [`uv build`](https://docs.astral.sh/uv/guides/publish/#building-your-package)
-3. Uploads to PyPI using
-   [`uv publish`](https://docs.astral.sh/uv/guides/publish/#publishing-your-package).
-4. Push to GitHub. You'll need to make a release going with the commit where the
-   version was bumped.
-5. Bump the version to the next patch. If you made big changes and want to bump
-   the version by minor, you can use `tox -e bumpversion -- minor` after.
+2. Pushes the resulting commit and tag to GitHub
+3. Bumps the version to the next `-dev` patch and pushes that too. If you made
+   big changes and want to bump the version by minor instead, use
+   `tox -e bumpversion -- minor` after.
 
 #### Releasing on GitHub
 
@@ -322,7 +324,43 @@ This script does the following:
    changes. Modify the title and description as you see fit
 4. Click the big green "Publish Release" button
 
-This will trigger Zenodo to assign a DOI to your release as well.
+Publishing the release triggers the `release.yml` workflow, which builds the
+package and uploads it to PyPI. It also triggers Zenodo to assign a DOI to your
+release.
+
+#### One-time setup: registering the trusted publisher
+
+Before the first automated release, a repository maintainer needs to register
+this workflow as a trusted publisher on PyPI:
+
+1. On the
+   [PyPI project page](https://pypi.org/manage/project/torch_max_mem/settings/publishing/)
+   (or, for a brand new project, https://pypi.org/manage/account/publishing/),
+   add a new GitHub publisher with:
+   - Owner: `mberr`
+   - Repository name: `torch-max-mem`
+   - Workflow name: `release.yml`
+   - Environment name: `pypi`
+2. Optionally, create a `pypi` environment under the repository's Settings ->
+   Environments with required reviewers, so publishing needs manual approval.
+
+The manual, credential-based release commands (`tox -e finish`,
+`tox -e release`, `tox -e release-via-env`) are still available below as a
+fallback if needed.
+
+#### Uploading to PyPI manually
+
+If you need to publish without going through GitHub Actions, run:
+
+```console
+tox -e finish
+```
+
+which performs the same version bump as `tox -e tag-release`, but also builds
+and uploads the package directly to PyPI using
+[`uv publish`](https://docs.astral.sh/uv/guides/publish/#publishing-your-package)
+with credentials from `keyring`, before pushing the tag and bumping to the next
+`-dev` version.
 
 ### Updating Package Boilerplate
 
