@@ -65,6 +65,7 @@ from typing_extensions import ParamSpec
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "infer_maximum_batch_size",
     "maximize_memory_utilization",
 ]
 
@@ -384,6 +385,94 @@ def maximize_memory_utilization_decorator(
         return wrapper_maximize_memory_utilization
 
     return decorator_maximize_memory_utilization
+
+
+# cf. https://github.com/mberr/torch-max-mem/issues/14#issuecomment-5237588056
+def infer_maximum_batch_size(
+    parameter_name: str = "batch_size",
+    x_parameter_name: str = "x",
+    max_value: int | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """
+    Create a decorator that infers a maximum batch size from the size of another parameter.
+
+    This is useful to combine with :func:`maximize_memory_utilization`, so the batch size parameter does not need to
+    be passed explicitly on each call.
+
+    .. code-block:: python
+
+        from torch_max_mem import infer_maximum_batch_size, maximize_memory_utilization
+
+
+        @infer_maximum_batch_size()
+        @maximize_memory_utilization()
+        def knn(x, y, batch_size, k: int = 3):
+            return torch.cat(
+                [
+                    torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
+                    for start in range(0, x.shape[0], batch_size)
+                ],
+                dim=0,
+            )
+
+    :param parameter_name:
+        The name of the batch size parameter to infer, if it is not explicitly given (or ``None``).
+    :param x_parameter_name:
+        The name of the parameter whose length, cf. :func:`len`, is used to infer the batch size.
+    :param max_value:
+        An optional upper bound for the inferred batch size, e.g., to avoid starting out with an unreasonably large
+        value even though the input is large. Has no effect on an explicitly given batch size.
+
+    :return:
+        A decorator for functions.
+
+    :raises ValueError:
+        when the function does not have a parameter of the name ``x_parameter_name``
+    """
+
+    def decorator_infer_maximum_batch_size(func: Callable[P, R]) -> Callable[P, R]:
+        """
+        Decorate a function to infer its maximum batch size from another parameter.
+
+        :param func:
+            The function to decorate.
+
+        :return:
+            The decorated function.
+
+        :raises ValueError:
+            when the function does not have a parameter of the name ``x_parameter_name``
+        """
+        signature = inspect.signature(func)
+        if x_parameter_name not in signature.parameters:
+            raise ValueError(f"{func} does not have a parameter {x_parameter_name}.")
+
+        @functools.wraps(func)
+        def wrapper_infer_maximum_batch_size(*args: P.args, **kwargs: P.kwargs) -> R:
+            """
+            Wrap a function to infer the maximum batch size from another parameter, unless explicitly given.
+
+            :param args:
+                The positional arguments.
+            :param kwargs:
+                The key-word based arguments.
+
+            :return:
+                The result of calling the wrapped function.
+            """
+            bound_arguments = signature.bind_partial(*args, **kwargs)
+            if bound_arguments.arguments.get(parameter_name) is None:
+                inferred_value = len(bound_arguments.arguments[x_parameter_name])
+                if max_value is not None:
+                    inferred_value = min(inferred_value, max_value)
+                # inject the inferred value as a keyword argument, leaving the original call shape untouched, so
+                # that, e.g., stacking with :func:`maximize_memory_utilization` keeps working correctly
+                kwargs[parameter_name] = inferred_value
+            return func(*args, **kwargs)
+
+        return wrapper_infer_maximum_batch_size
+
+    return decorator_infer_maximum_batch_size
 
 
 class KeyHasher:
