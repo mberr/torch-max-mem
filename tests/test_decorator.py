@@ -1,5 +1,6 @@
 """Tests."""
 
+import subprocess
 import unittest
 from typing import Any
 
@@ -181,6 +182,33 @@ def test_large_on_mps_driver_oom() -> None:
     process instead of raising a Python exception.
     cf. https://github.com/mberr/torch-max-mem/issues/14#issuecomment-5237588056
     """
+    x = torch.rand(100_000, 100, device="mps")
+    y = torch.rand(200_000, 100, device="mps")
+    wrapped_knn(x, y, batch_size=x.shape[0])
+
+
+def _macos_total_memory_bytes() -> int:
+    """Return the machine's total physical memory, in bytes."""
+    return int(subprocess.check_output(["sysctl", "-n", "hw.memsize"]).strip())
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="Requires MPS support.")
+def test_large_on_mps_driver_oom_under_memory_pressure() -> None:
+    """Reproduce the MPS driver-level OOM from issue #14 under artificial memory pressure.
+
+    test_large_on_mps_driver_oom passes on GitHub-hosted macOS CI runners despite having far less total
+    RAM than the reporter's machine, which points at *free* memory at call time -- not total RAM -- as
+    the relevant variable (cf. discussion on issue #14). Unified memory means CPU and GPU allocations
+    share the same physical pool, so eagerly filling most of the machine's RAM on the CPU side before
+    running the same reproduction simulates a loaded daily-driver machine rather than CI's otherwise-idle
+    VM. Only a small margin is left free, so this is expected to fail (crash or raise) rather than pass.
+    """
+    total_bytes = _macos_total_memory_bytes()
+    free_margin_bytes = 2 * 1024**3
+    filler_elements = max(0, (total_bytes - free_margin_bytes)) // 4  # float32
+    filler = torch.rand(filler_elements)  # noqa: F841 -- kept alive to hold real, resident memory
+
     x = torch.rand(100_000, 100, device="mps")
     y = torch.rand(200_000, 100, device="mps")
     wrapped_knn(x, y, batch_size=x.shape[0])
