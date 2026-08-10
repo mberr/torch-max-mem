@@ -155,7 +155,9 @@ def test_infer_maximum_batch_size_stacked() -> None:
         return knn(x, y, batch_size, k=k)
 
     reference = knn(x, y, batch_size=x.shape[0])
-    optimized = wrapped_knn(x, y)
+    # infer_maximum_batch_size preserves the wrapped function's ParamSpec, so mypy still considers batch_size
+    # required here, even though it is optional at runtime
+    optimized = wrapped_knn(x, y)  # type: ignore[call-arg]
     assert reference.shape == optimized.shape
     assert torch.allclose(reference, optimized)
 

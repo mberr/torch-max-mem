@@ -84,9 +84,9 @@ knn(x, y, batch_size=x.shape[0])
 ```
 
 If you would rather not have to pass the batch size explicitly at all, you can
-additionally decorate the function with `infer_maximum_batch_size`, which
-infers it from the length of another parameter (`x` by default) whenever
-`batch_size` is not given explicitly
+additionally decorate the function with `infer_maximum_batch_size`, which infers
+it from the length of another parameter (`x` by default) whenever `batch_size`
+is not given explicitly
 ([source](https://github.com/mberr/torch-max-mem/issues/14#issuecomment-5237588056)).
 
 ```python
