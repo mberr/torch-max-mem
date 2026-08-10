@@ -215,7 +215,7 @@ def create_tensor_checker(
         a function that checks its parameters for tensors and emits a warning if any is on a non-safe device.
     """
     if safe_devices is None:
-        safe_devices = {"cuda"}
+        safe_devices = {"cuda", "mps"}
     safe_devices_set = frozenset(safe_devices)
     logger.debug(
         f"Will warn about running memory utilization maximization on tensors on devices other than {safe_devices_set}",
