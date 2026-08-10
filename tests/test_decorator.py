@@ -171,6 +171,29 @@ def test_large_on_mps() -> None:
 
 
 @pytest.mark.slow
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="Requires MPS support.")
+@pytest.mark.skip(
+    reason=(
+        "Reproduces a real MPS command-buffer OOM (kIOGPUCommandBufferCallbackErrorOutOfMemory) that "
+        "surfaces at the Metal driver level rather than as a Python exception, so it may crash the "
+        "process instead of failing gracefully. Left skipped to avoid taking down CI runners; "
+        "un-skip manually to reproduce. cf. "
+        "https://github.com/mberr/torch-max-mem/issues/14#issuecomment-5237588056"
+    ),
+)
+def test_large_on_mps_driver_oom() -> None:
+    """Reproduce the unbatched MPS driver-level OOM reported in issue #14.
+
+    Unlike test_large_on_mps, these inputs are large enough that the failure occurs during actual GPU
+    command buffer execution rather than during buffer-size validation, so it is not expected to be
+    caught by is_oom_error's message matching.
+    """
+    x = torch.rand(100_000, 100, device="mps")
+    y = torch.rand(200_000, 100, device="mps")
+    wrapped_knn(x, y, batch_size=x.shape[0])
+
+
+@pytest.mark.slow
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA support.")
 def test_large_on_cuda() -> None:
     """Test memory optimization on a large input."""
