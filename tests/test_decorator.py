@@ -1,12 +1,13 @@
 """Tests."""
 
 import unittest
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
 import torch
 
-from torch_max_mem import maximize_memory_utilization
+from torch_max_mem import infer_maximum_batch_size, maximize_memory_utilization
 from torch_max_mem.api import floor_to_nearest_multiple_of, is_oom_error, maximize_memory_utilization_decorator
 
 
@@ -88,6 +89,58 @@ def test_default_no_arg() -> None:
 
     # call with no arg
     func()
+
+
+def test_infer_maximum_batch_size() -> None:
+    """Test batch size inference from another parameter's length."""
+
+    @infer_maximum_batch_size()
+    def func(x: Sequence[Any], batch_size: int | None = None) -> int:
+        """Return the batch size."""
+        assert batch_size is not None
+        return batch_size
+
+    assert func(list(range(5))) == 5
+    # an explicitly given batch size is not overridden
+    assert func(list(range(5)), batch_size=2) == 2
+
+
+def test_infer_maximum_batch_size_custom_names() -> None:
+    """Test batch size inference with non-default parameter names."""
+
+    @infer_maximum_batch_size(parameter_name="chunk_size", x_parameter_name="y")
+    def func(y: Sequence[Any], chunk_size: int | None = None) -> int:
+        """Return the chunk size."""
+        assert chunk_size is not None
+        return chunk_size
+
+    assert func(list(range(7))) == 7
+
+
+def test_infer_maximum_batch_size_missing_parameter() -> None:
+    """Test that decoration fails if the length parameter does not exist."""
+    with pytest.raises(ValueError, match="does not have a parameter"):
+
+        @infer_maximum_batch_size(x_parameter_name="does_not_exist")
+        def func(x: Sequence[Any], batch_size: int | None = None) -> None:
+            """Test function."""
+
+
+def test_infer_maximum_batch_size_stacked() -> None:
+    """Test combining batch size inference with memory utilization maximization."""
+    x = torch.rand(100, 100)
+    y = torch.rand(200, 100)
+
+    @infer_maximum_batch_size()
+    @maximize_memory_utilization()
+    def wrapped_knn(x: torch.Tensor, y: torch.Tensor, batch_size: int, k: int = 3) -> torch.Tensor:
+        """Compute k-nearest neighbors via batched brute-force distance calculation."""
+        return knn(x, y, batch_size, k=k)
+
+    reference = knn(x, y, batch_size=x.shape[0])
+    optimized = wrapped_knn(x, y)
+    assert reference.shape == optimized.shape
+    assert torch.allclose(reference, optimized)
 
 
 def test_optimization() -> None:

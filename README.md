@@ -83,6 +83,34 @@ y = torch.rand(200, 100, device="cuda")
 knn(x, y, batch_size=x.shape[0])
 ```
 
+If you would rather not have to pass the batch size explicitly at all, you can
+additionally decorate the function with `infer_maximum_batch_size`, which
+infers it from the length of another parameter (`x` by default) whenever
+`batch_size` is not given explicitly
+([source](https://github.com/mberr/torch-max-mem/issues/14#issuecomment-5237588056)).
+
+```python
+import torch
+from torch_max_mem import infer_maximum_batch_size, maximize_memory_utilization
+
+
+@infer_maximum_batch_size()
+@maximize_memory_utilization()
+def knn(x, y, batch_size, k: int = 3):
+    return torch.cat(
+        [
+            torch.cdist(x[start : start + batch_size], y).topk(k=k, dim=1, largest=False).indices
+            for start in range(0, x.shape[0], batch_size)
+        ],
+        dim=0,
+    )
+
+
+x = torch.rand(100, 100, device="cuda")
+y = torch.rand(200, 100, device="cuda")
+knn(x, y)
+```
+
 ## 🚀 Installation
 
 The most recent release can be installed from
