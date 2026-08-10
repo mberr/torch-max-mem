@@ -391,6 +391,7 @@ def maximize_memory_utilization_decorator(
 def infer_maximum_batch_size(
     parameter_name: str = "batch_size",
     x_parameter_name: str = "x",
+    max_value: int | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Create a decorator that infers a maximum batch size from the size of another parameter.
@@ -418,6 +419,9 @@ def infer_maximum_batch_size(
         The name of the batch size parameter to infer, if it is not explicitly given (or ``None``).
     :param x_parameter_name:
         The name of the parameter whose length, cf. :func:`len`, is used to infer the batch size.
+    :param max_value:
+        An optional upper bound for the inferred batch size, e.g., to avoid starting out with an unreasonably large
+        value even though the input is large. Has no effect on an explicitly given batch size.
 
     :return:
         A decorator for functions.
@@ -458,9 +462,12 @@ def infer_maximum_batch_size(
             """
             bound_arguments = signature.bind_partial(*args, **kwargs)
             if bound_arguments.arguments.get(parameter_name) is None:
+                inferred_value = len(bound_arguments.arguments[x_parameter_name])
+                if max_value is not None:
+                    inferred_value = min(inferred_value, max_value)
                 # inject the inferred value as a keyword argument, leaving the original call shape untouched, so
                 # that, e.g., stacking with :func:`maximize_memory_utilization` keeps working correctly
-                kwargs[parameter_name] = len(bound_arguments.arguments[x_parameter_name])
+                kwargs[parameter_name] = inferred_value
             return func(*args, **kwargs)
 
         return wrapper_infer_maximum_batch_size

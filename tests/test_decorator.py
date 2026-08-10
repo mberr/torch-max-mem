@@ -105,6 +105,23 @@ def test_infer_maximum_batch_size() -> None:
     assert func(list(range(5)), batch_size=2) == 2
 
 
+def test_infer_maximum_batch_size_max_value() -> None:
+    """Test that the inferred batch size is capped at max_value."""
+
+    @infer_maximum_batch_size(max_value=3)
+    def func(x: Sequence[Any], batch_size: int | None = None) -> int:
+        """Return the batch size."""
+        assert batch_size is not None
+        return batch_size
+
+    # inferred value is capped
+    assert func(list(range(5))) == 3
+    # smaller inferred value is untouched
+    assert func(list(range(2))) == 2
+    # an explicitly given batch size is not capped
+    assert func(list(range(5)), batch_size=4) == 4
+
+
 def test_infer_maximum_batch_size_custom_names() -> None:
     """Test batch size inference with non-default parameter names."""
 
