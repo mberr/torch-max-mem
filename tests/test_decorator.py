@@ -222,6 +222,16 @@ def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
         ),
         # cf. https://github.com/mberr/torch-max-mem/pull/15
         (RuntimeError("selected index k out of range"), False),
+        # CUDA allocator failures under memory pressure
+        # cf. https://github.com/mberr/torch-max-mem/issues/45
+        (
+            RuntimeError(
+                '!handles_.at(i) INTERNAL ASSERT FAILED at "/pytorch/c10/cuda/CUDACachingAllocator.cpp":430, '
+                "please report a bug to PyTorch.",
+            ),
+            True,
+        ),
+        (RuntimeError("CUDA driver error: device not ready"), True),
     ],
 )
 def test_oom_error_detection(error: BaseException, exp: bool) -> None:
