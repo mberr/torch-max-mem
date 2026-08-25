@@ -178,7 +178,7 @@ To install in development mode, use the following:
 
 ```console
 git clone git+https://github.com/mberr/torch-max-mem.git
-cd snekpack-demo
+cd torch-max-mem
 uv pip install -e .
 ```
 
@@ -221,7 +221,7 @@ The documentation can be built locally using the following:
 
 ```console
 git clone git+https://github.com/mberr/torch-max-mem.git
-cd snekpack-demo
+cd torch-max-mem
 tox -e docs
 open docs/build/html/index.html
 ```
