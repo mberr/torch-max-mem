@@ -202,6 +202,22 @@ def test_stateful_hasher_sees_flat_variadic_keyword_arguments() -> None:
     assert len(maximizer.parameter_value) == 2
 
 
+def test_stateful_cache_is_bounded() -> None:
+    """Test that the cache evicts the least recently used entry."""
+    maximizer = maximize_memory_utilization(keys="n", max_cache_size=4)
+
+    @maximizer
+    def func(n: int, batch_size: int = 8) -> int:
+        """Return the batch size."""
+        return batch_size
+
+    for n in range(10):
+        func(n=n)
+    assert len(maximizer.parameter_value) == 4
+    # the four most recent keys survived
+    assert list(maximizer.parameter_value) == [maximizer.hasher({"n": n}) for n in range(6, 10)]
+
+
 @pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
 def test_key_hasher(keys: tuple[str, ...] | None) -> None:
     """Test ad-hoc hasher."""

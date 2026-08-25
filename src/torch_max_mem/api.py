@@ -53,7 +53,9 @@ import functools
 import inspect
 import itertools
 import logging
-from collections.abc import Callable, Collection, Iterable, Mapping, MutableMapping, Sequence
+import threading
+from collections import OrderedDict
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from typing import (
     Any,
     TypeVar,
@@ -75,6 +77,9 @@ P = ParamSpec("P")
 #: marks a function wrapped by :func:`infer_maximum_batch_size`, so that applying memory utilization
 #: maximization on top of it - i.e., in the wrong order - can be rejected with a helpful message
 INFERS_BATCH_SIZE_ATTRIBUTE = "__torch_max_mem_infers_batch_size__"
+
+#: the number of tuned parameter values a :class:`MemoryUtilizationMaximizer` remembers by default
+DEFAULT_MAX_CACHE_SIZE = 128
 
 
 def upgrade_to_sequence(
@@ -635,6 +640,7 @@ class MemoryUtilizationMaximizer:
         safe_devices: Collection[str] | None = None,
         hasher: Callable[[Mapping[str, Any]], int] | None = None,
         keys: Collection[str] | str | None = None,
+        max_cache_size: int | None = DEFAULT_MAX_CACHE_SIZE,
     ) -> None:
         """
         Initialize the stateful maximizer.
@@ -649,10 +655,16 @@ class MemoryUtilizationMaximizer:
             a hashing function for separate parameter values depending on hash value; if None, use the same for all
         :param keys:
             the keys to use for creating a hasher. Only used if hasher is None.
+        :param max_cache_size:
+            the maximum number of tuned parameter values to remember. The least recently used one is evicted
+            once the limit is exceeded. Pass ``None`` to keep all of them.
         """
         self.parameter_names, self.qs = upgrade_to_sequence(parameter_name=parameter_name, q=q)
         self.safe_devices = safe_devices
-        self.parameter_value: MutableMapping[int, tuple[int, ...]] = {}
+        self.max_cache_size = max_cache_size
+        self.parameter_value: OrderedDict[int, tuple[int, ...]] = OrderedDict()
+        # the cache is shared between all calls of the decorated function, which may happen concurrently
+        self._lock = threading.Lock()
         if hasher is None:
             keys = KeyHasher.normalize_keys(keys)
             intersection = set(keys).intersection(self.parameter_names)
@@ -672,7 +684,40 @@ class MemoryUtilizationMaximizer:
         value is reused for all subsequent calls with the same hash. Call this when the memory situation
         changed for the better, e.g., because another process released its memory.
         """
-        self.parameter_value.clear()
+        with self._lock:
+            self.parameter_value.clear()
+
+    def _lookup(self, key: int) -> tuple[int, ...] | None:
+        """
+        Look up the tuned values for a hash, marking them as recently used.
+
+        :param key:
+            the hash of the call
+
+        :return:
+            the tuned values, if any have been stored for this hash
+        """
+        with self._lock:
+            values = self.parameter_value.get(key)
+            if values is not None:
+                self.parameter_value.move_to_end(key)
+            return values
+
+    def _store(self, key: int, values: tuple[int, ...]) -> None:
+        """
+        Store the tuned values for a hash, evicting the least recently used entry if necessary.
+
+        :param key:
+            the hash of the call
+        :param values:
+            the tuned values
+        """
+        with self._lock:
+            self.parameter_value[key] = values
+            self.parameter_value.move_to_end(key)
+            if self.max_cache_size is not None:
+                while len(self.parameter_value) > self.max_cache_size:
+                    self.parameter_value.popitem(last=False)
 
     def __call__(self, func: Callable[P, R]) -> Callable[P, R]:
         """Wrap the function."""
@@ -691,7 +736,7 @@ class MemoryUtilizationMaximizer:
             bound = signature.bind(*args, **kwargs)
             bound.apply_defaults()
             h = self.hasher(flatten_variadic_keyword_arguments(bound))
-            cached = self.parameter_value.get(h)
+            cached = self._lookup(h)
             values = []
             for index, name in enumerate(self.parameter_names):
                 requested = bound.arguments[name]
@@ -708,9 +753,12 @@ class MemoryUtilizationMaximizer:
             result, achieved = wrapped(*bound.args, **bound.kwargs)
             # only lower the cached ceiling when the search actually had to reduce a value. succeeding with a
             # smaller value that the caller requested explicitly is no evidence about where the ceiling is.
-            self.parameter_value[h] = tuple(
-                a if a < v else max(a, c)
-                for a, v, c in zip(achieved, values, achieved if cached is None else cached, strict=True)
+            self._store(
+                h,
+                tuple(
+                    a if a < v else max(a, c)
+                    for a, v, c in zip(achieved, values, achieved if cached is None else cached, strict=True)
+                ),
             )
             return result
 
