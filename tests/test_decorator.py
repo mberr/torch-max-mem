@@ -294,6 +294,15 @@ def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
             True,
         ),
         (RuntimeError("CUDA driver error: device not ready"), True),
+        # unrelated internal assertions must not be mistaken for out-of-memory errors
+        (
+            RuntimeError(
+                "isDifferentiableType(variable.scalar_type()) INTERNAL ASSERT FAILED at "
+                '"../torch/csrc/autograd/functions/utils.h":74, please report a bug to PyTorch.',
+            ),
+            False,
+        ),
+        (RuntimeError("INTERNAL ASSERT FAILED"), False),
     ],
 )
 def test_oom_error_detection(error: BaseException, exp: bool) -> None:
