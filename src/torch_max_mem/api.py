@@ -191,10 +191,20 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
     # CPU OOM error
     "DefaultCPUAllocator: not enough memory:",
     # cf. https://github.com/mberr/torch-max-mem/issues/45
-    # downstream symptoms of the CUDA caching allocator being pushed to its limit under memory pressure
-    "INTERNAL ASSERT FAILED",
+    # a downstream symptom of the CUDA caching allocator being pushed to its limit under memory pressure
     "CUDA driver error: device not ready",
 }
+
+# some messages are only indicative of an out-of-memory situation in combination. an error is treated as an
+# out-of-memory error when it contains *all* infixes of any one of these groups.
+# cf. https://github.com/mberr/torch-max-mem/issues/45
+ADDITIONAL_OOM_ERROR_INFIX_CONJUNCTIONS: Collection[Collection[str]] = (
+    # the CUDA caching allocator failing an internal consistency check under memory pressure.
+    # note: "INTERNAL ASSERT FAILED" alone is far too broad - PyTorch emits it from hundreds of unrelated
+    # TORCH_INTERNAL_ASSERT sites, and matching it would silently retry genuine bugs with ever smaller
+    # parameters, only to report them as a MemoryError in the end. Hence the allocator marker is required.
+    ("INTERNAL ASSERT FAILED", "CUDACachingAllocator"),
+)
 
 
 def iter_tensor_devices(*args: Any, **kwargs: Any) -> Iterable[torch.device]:
@@ -272,7 +282,9 @@ def is_oom_error(error: BaseException) -> bool:
     if not isinstance(error, RuntimeError):
         return False
     message = str(error)
-    return any(infix in message for infix in ADDITIONAL_OOM_ERROR_INFIXES)
+    if any(infix in message for infix in ADDITIONAL_OOM_ERROR_INFIXES):
+        return True
+    return any(all(infix in message for infix in infixes) for infixes in ADDITIONAL_OOM_ERROR_INFIX_CONJUNCTIONS)
 
 
 def maximize_memory_utilization_decorator(
