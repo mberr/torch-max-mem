@@ -69,6 +69,7 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "infer_maximum_batch_size",
     "maximize_memory_utilization",
+    "set_memory_budget",
 ]
 
 R = TypeVar("R")
@@ -238,6 +239,10 @@ def create_tensor_checker(
         (OOM) issues. For example for CPU, OOM errors may trigger the operating system's OOM killer to directly
         terminate the process without any catchable exceptions. Defaults to ``{"cuda"}``.
 
+        Note that CUDA is only safe as long as the device is used for compute alone. On a GPU that also drives a
+        display, exhausting its memory can freeze or reset the display driver before PyTorch raises anything
+        catchable; cf. :func:`set_memory_budget` for how to leave headroom in that case.
+
     :return:
         a function that checks its parameters for tensors and emits a warning if any is on a non-safe device.
     """
@@ -321,6 +326,53 @@ def check_decorator_order(func: Callable[..., Any]) -> None:
         f"    @maximize_memory_utilization()\n"
         f"    def {name}(...): ...\n",
     )
+
+
+def set_memory_budget(budget: int, device: int | str | torch.device | None = None) -> float:
+    """
+    Cap how much CUDA memory this process may use, leaving the rest of the device to others.
+
+    Memory utilization maximization grows a parameter until an allocation fails. On a GPU that also drives a
+    display, or that is shared with other processes, this means growing until *somebody else* fails: the
+    display compositor can stutter, freeze, or trigger a driver reset long before PyTorch ever sees a
+    catchable exception. Capping the caching allocator turns "the device is full" back into an ordinary
+    :class:`torch.cuda.OutOfMemoryError`, which this package handles.
+
+    .. code-block:: python
+
+        from torch_max_mem import set_memory_budget
+
+        # leave everything beyond 2 GiB to the desktop
+        set_memory_budget(2 * 1024**3)
+
+    .. note::
+        The budget only bounds PyTorch's caching allocator. The CUDA context itself, as well as cuBLAS and
+        cuDNN workspaces, live outside of it and add a few hundred MiB on top, so leave some slack.
+
+    :param budget:
+        the maximum number of bytes the caching allocator may hand out on this device
+    :param device:
+        the CUDA device; defaults to the current one
+
+    :return:
+        the fraction of the device's total memory that the budget corresponds to
+
+    :raises ValueError:
+        when the budget is not positive
+    """
+    if budget <= 0:
+        raise ValueError(f"{budget=} must be positive.")
+    if isinstance(device, str):
+        device = torch.device(device)
+    # `set_per_process_memory_fraction` requires an explicit device index; `None` and an index-less
+    # `torch.device("cuda")` both refer to the current device
+    if device is None or (isinstance(device, torch.device) and device.index is None):
+        device = torch.cuda.current_device()
+    total = torch.cuda.get_device_properties(device).total_memory
+    fraction = min(budget / total, 1.0)
+    torch.cuda.set_per_process_memory_fraction(fraction, device)
+    logger.debug(f"Limited the caching allocator on {device=} to {fraction:.3f} of {total} bytes.")
+    return fraction
 
 
 def maximize_memory_utilization_decorator(

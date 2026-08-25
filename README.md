@@ -111,6 +111,28 @@ y = torch.rand(200, 100, device="cuda")
 knn(x, y)
 ```
 
+### Sharing the GPU with a display
+
+Memory utilization maximization grows the batch size until an allocation fails.
+If the GPU also drives your display, or is shared with other processes, that
+means growing until _somebody else_ fails: the compositor can stutter, freeze,
+or trigger a driver reset well before PyTorch raises anything catchable.
+
+`set_memory_budget` caps how much the caching allocator may hand out, so running
+out of budget surfaces as an ordinary, catchable `torch.cuda.OutOfMemoryError`
+that the decorators already handle.
+
+```python
+from torch_max_mem import set_memory_budget
+
+# leave everything beyond 2 GiB to the desktop
+set_memory_budget(2 * 1024**3)
+```
+
+Note that the budget only bounds PyTorch's caching allocator. The CUDA context,
+as well as cuBLAS and cuDNN workspaces, live outside of it and add a few hundred
+MiB on top, so leave some slack.
+
 ## 🚀 Installation
 
 The most recent release can be installed from
