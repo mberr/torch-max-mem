@@ -69,6 +69,36 @@ def test_parameter_types() -> None:
         """Evaluate a function where batch_size is a keyword-only parameter."""
 
 
+def test_stateful_positional_parameter() -> None:
+    """Test that the tuned parameter can be passed positionally."""
+
+    @maximize_memory_utilization()
+    def func(x: Any, batch_size: int = 8) -> int:
+        """Return the batch size."""
+        return batch_size
+
+    assert func(None, 4) == 4
+    assert func(None, batch_size=4) == 4
+
+
+def test_stateful_hasher_sees_positional_keys() -> None:
+    """Test that hashing keys are picked up when passed positionally."""
+    maximizer = maximize_memory_utilization(keys="n")
+
+    @maximizer
+    def func(n: int, batch_size: int = 1024) -> int:
+        """Fail whenever the batch size exceeds n."""
+        if batch_size > n:
+            raise torch.cuda.OutOfMemoryError
+        return batch_size
+
+    # tune for a small n, passed positionally
+    assert func(64) == 64
+    # a larger n must not silently reuse the value tuned for n=64
+    assert func(2048) == 1024
+    assert len(maximizer.parameter_value) == 2
+
+
 @pytest.mark.parametrize("keys", [None, ("a",), ("a", "b", "c")])
 def test_key_hasher(keys: tuple[str, ...] | None) -> None:
     """Test ad-hoc hasher."""

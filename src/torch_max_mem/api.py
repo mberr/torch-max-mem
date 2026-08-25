@@ -574,16 +574,18 @@ class MemoryUtilizationMaximizer:
         @functools.wraps(wrapped)
         def inner(*args: P.args, **kwargs: P.kwargs) -> R:
             """Evaluate function with the stored parameter size."""
-            h = self.hasher(kwargs)
+            # bind against the signature first, so that positionally and keyword-passed arguments are treated
+            # alike, both for hashing and for injecting the tuned values back in
+            bound = signature.bind(*args, **kwargs)
+            bound.apply_defaults()
+            h = self.hasher(bound.arguments)
             if h in self.parameter_value:
                 values = self.parameter_value[h]
             else:
-                bound = signature.bind(*args, **kwargs)
-                bound.apply_defaults()
                 # todo: default logic?
                 values = tuple(bound.arguments[name] for name in self.parameter_names)
-            kwargs.update(zip(self.parameter_names, values, strict=False))
-            result, self.parameter_value[h] = wrapped(*args, **kwargs)
+            bound.arguments.update(zip(self.parameter_names, values, strict=True))
+            result, self.parameter_value[h] = wrapped(*bound.args, **bound.kwargs)
             return result
 
         return inner
