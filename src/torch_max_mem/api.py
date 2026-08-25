@@ -477,15 +477,33 @@ def infer_maximum_batch_size(
 
             :return:
                 The result of calling the wrapped function.
+
+            :raises TypeError:
+                when no value for ``x_parameter_name`` is available to infer the batch size from
             """
             bound_arguments = signature.bind_partial(*args, **kwargs)
-            if bound_arguments.arguments.get(parameter_name) is None:
-                inferred_value = len(bound_arguments.arguments[x_parameter_name])
-                if max_value is not None:
-                    inferred_value = min(inferred_value, max_value)
-                # inject the inferred value as a keyword argument, leaving the original call shape untouched, so
-                # that, e.g., stacking with :func:`maximize_memory_utilization` keeps working correctly
-                kwargs[parameter_name] = inferred_value
+            if bound_arguments.arguments.get(parameter_name) is not None:
+                return func(*args, **kwargs)
+
+            x_value = bound_arguments.arguments.get(x_parameter_name, signature.parameters[x_parameter_name].default)
+            if x_value is inspect.Parameter.empty:
+                raise TypeError(
+                    f"Cannot infer {parameter_name}, since {getattr(func, '__name__', func)} did not receive a "
+                    f"value for {x_parameter_name}.",
+                )
+            inferred_value = len(x_value)
+            if max_value is not None:
+                inferred_value = min(inferred_value, max_value)
+
+            if parameter_name in bound_arguments.arguments and parameter_name not in kwargs:
+                # the parameter was passed positionally, as an explicit None. adding a keyword argument would
+                # collide with it, so rewrite the bound arguments instead
+                bound_arguments.arguments[parameter_name] = inferred_value
+                return func(*bound_arguments.args, **bound_arguments.kwargs)
+
+            # otherwise inject the inferred value as a keyword argument, leaving the original call shape
+            # untouched, so that, e.g., stacking with :func:`maximize_memory_utilization` keeps working
+            kwargs[parameter_name] = inferred_value
             return func(*args, **kwargs)
 
         return wrapper_infer_maximum_batch_size

@@ -208,6 +208,44 @@ def test_infer_maximum_batch_size_custom_names() -> None:
     assert func(list(range(7))) == 7
 
 
+def test_infer_maximum_batch_size_positional() -> None:
+    """Test batch size inference when arguments are passed positionally."""
+
+    @infer_maximum_batch_size()
+    def func(x: Sequence[Any], batch_size: int | None = None) -> int | None:
+        """Return the batch size."""
+        return batch_size
+
+    # an explicit positional None is treated like an omitted value, not as a duplicate argument
+    assert func(list(range(5)), None) == 5
+    # an explicit positional value is kept
+    assert func(list(range(5)), 2) == 2
+
+
+def test_infer_maximum_batch_size_x_default() -> None:
+    """Test batch size inference falls back to the length parameter's default."""
+
+    @infer_maximum_batch_size()
+    def func(x: Sequence[Any] = (1, 2, 3), batch_size: int | None = None) -> int | None:
+        """Return the batch size."""
+        return batch_size
+
+    assert func() == 3
+
+
+def test_infer_maximum_batch_size_x_missing_at_call() -> None:
+    """Test a helpful error when no value for the length parameter is given."""
+
+    @infer_maximum_batch_size()
+    def func(x: Sequence[Any], batch_size: int | None = None) -> int | None:
+        """Return the batch size."""
+        return batch_size
+
+    with pytest.raises(TypeError, match="did not receive a value for x"):
+        # mypy correctly flags the missing argument; the point of the test is the runtime message
+        func()  # type: ignore[call-arg]
+
+
 def test_infer_maximum_batch_size_missing_parameter() -> None:
     """Test that decoration fails if the length parameter does not exist."""
     with pytest.raises(ValueError, match="does not have a parameter"):
