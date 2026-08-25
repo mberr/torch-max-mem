@@ -153,6 +153,18 @@ def test_default_no_arg() -> None:
     func()
 
 
+def test_optional_default() -> None:
+    """Test decoration of a function whose parameter defaults to None."""
+
+    # this is the signature suggested by infer_maximum_batch_size, so it must be decoratable
+    @maximize_memory_utilization()
+    def func(x: Sequence[Any], batch_size: int | None = None) -> int | None:
+        """Test function."""
+        return batch_size
+
+    assert func([1, 2, 3], batch_size=2) == 2
+
+
 def test_infer_maximum_batch_size() -> None:
     """Test batch size inference from another parameter's length."""
 

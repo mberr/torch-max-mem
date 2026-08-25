@@ -115,7 +115,7 @@ def determine_default_max_value(
         the signature of the function
 
     :return:
-        the default value as an integer, if any is given.
+        the default value as an integer, if a (non-``None``) one is given.
 
     :raises ValueError:
         when the function does not have a parameter of the given name
@@ -131,7 +131,9 @@ def determine_default_max_value(
             f"Memory utilization maximization is written for integer parameters, but the "
             f"{parameter_name} is annotated as {_parameter.annotation}; casting to int",
         )
-    if _parameter.default != inspect.Parameter.empty:
+    # note: a `None` default marks the parameter as "to be determined", cf. :func:`infer_maximum_batch_size`,
+    # and must not be cast to an integer here
+    if _parameter.default is not inspect.Parameter.empty and _parameter.default is not None:
         return int(_parameter.default)
     return None
 
