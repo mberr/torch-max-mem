@@ -664,6 +664,16 @@ class MemoryUtilizationMaximizer:
             hasher = KeyHasher(keys=keys)
         self.hasher = hasher
 
+    def reset(self) -> None:
+        """
+        Forget all tuned parameter values, so that the next call searches again.
+
+        The tuned values are only ever lowered, never raised again: once a call ran out of memory, the reduced
+        value is reused for all subsequent calls with the same hash. Call this when the memory situation
+        changed for the better, e.g., because another process released its memory.
+        """
+        self.parameter_value.clear()
+
     def __call__(self, func: Callable[P, R]) -> Callable[P, R]:
         """Wrap the function."""
         wrapped = maximize_memory_utilization_decorator(
@@ -681,13 +691,27 @@ class MemoryUtilizationMaximizer:
             bound = signature.bind(*args, **kwargs)
             bound.apply_defaults()
             h = self.hasher(flatten_variadic_keyword_arguments(bound))
-            if h in self.parameter_value:
-                values = self.parameter_value[h]
-            else:
-                # todo: default logic?
-                values = tuple(bound.arguments[name] for name in self.parameter_names)
+            cached = self.parameter_value.get(h)
+            values = []
+            for index, name in enumerate(self.parameter_names):
+                requested = bound.arguments[name]
+                if cached is None:
+                    # todo: default logic?
+                    values.append(requested)
+                elif requested is None:
+                    values.append(cached[index])
+                else:
+                    # the cached value is the largest one known to work, so we do not exceed it; an explicitly
+                    # requested *smaller* value is still honored. use :meth:`reset` to re-probe upwards.
+                    values.append(min(requested, cached[index]))
             bound.arguments.update(zip(self.parameter_names, values, strict=True))
-            result, self.parameter_value[h] = wrapped(*bound.args, **bound.kwargs)
+            result, achieved = wrapped(*bound.args, **bound.kwargs)
+            # only lower the cached ceiling when the search actually had to reduce a value. succeeding with a
+            # smaller value that the caller requested explicitly is no evidence about where the ceiling is.
+            self.parameter_value[h] = tuple(
+                a if a < v else max(a, c)
+                for a, v, c in zip(achieved, values, achieved if cached is None else cached, strict=True)
+            )
             return result
 
         return inner

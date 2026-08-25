@@ -105,6 +105,48 @@ def test_stateful_hasher_sees_positional_keys() -> None:
     assert len(maximizer.parameter_value) == 2
 
 
+def test_stateful_smaller_explicit_value_is_honored() -> None:
+    """Test that an explicitly requested value below the cached one is used."""
+    maximizer = maximize_memory_utilization()
+
+    @maximizer
+    def func(batch_size: int = 1024) -> int:
+        """Fail whenever the batch size exceeds 64."""
+        if batch_size > 64:
+            raise torch.cuda.OutOfMemoryError
+        return batch_size
+
+    # the search settles on 64, which is then cached
+    assert func() == 64
+    assert func() == 64
+    # asking for less than the cached value is honored ...
+    assert func(batch_size=16) == 16
+    # ... but asking for more does not re-trigger the search
+    assert func(batch_size=1024) == 64
+
+
+def test_stateful_reset() -> None:
+    """Test that reset makes the maximizer search again."""
+    fails_above = 64
+    maximizer = maximize_memory_utilization()
+
+    @maximizer
+    def func(batch_size: int = 1024) -> int:
+        """Fail whenever the batch size exceeds the current limit."""
+        if batch_size > fails_above:
+            raise torch.cuda.OutOfMemoryError
+        return batch_size
+
+    assert func() == 64
+    # memory pressure is gone, but the tuned value is sticky by design
+    fails_above = 1024
+    assert func() == 64
+    # ... until the cache is cleared
+    maximizer.reset()
+    assert not maximizer.parameter_value
+    assert func() == 1024
+
+
 def test_key_hasher_tensor_values() -> None:
     """Test that tensor-valued hashing keys hash by content, not by identity."""
     hasher = KeyHasher(keys="x")
