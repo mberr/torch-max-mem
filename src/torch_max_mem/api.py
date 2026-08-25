@@ -72,6 +72,10 @@ __all__ = [
 R = TypeVar("R")
 P = ParamSpec("P")
 
+#: marks a function wrapped by :func:`infer_maximum_batch_size`, so that applying memory utilization
+#: maximization on top of it - i.e., in the wrong order - can be rejected with a helpful message
+INFERS_BATCH_SIZE_ATTRIBUTE = "__torch_max_mem_infers_batch_size__"
+
 
 def upgrade_to_sequence(
     parameter_name: str | Sequence[str], q: int | Sequence[int]
@@ -115,7 +119,7 @@ def determine_default_max_value(
         the signature of the function
 
     :return:
-        the default value as an integer, if any is given.
+        the default value as an integer, if a (non-``None``) one is given.
 
     :raises ValueError:
         when the function does not have a parameter of the given name
@@ -131,7 +135,9 @@ def determine_default_max_value(
             f"Memory utilization maximization is written for integer parameters, but the "
             f"{parameter_name} is annotated as {_parameter.annotation}; casting to int",
         )
-    if _parameter.default != inspect.Parameter.empty:
+    # note: a `None` default marks the parameter as "to be determined", cf. :func:`infer_maximum_batch_size`,
+    # and must not be cast to an integer here
+    if _parameter.default is not inspect.Parameter.empty and _parameter.default is not None:
         return int(_parameter.default)
     return None
 
@@ -287,6 +293,29 @@ def is_oom_error(error: BaseException) -> bool:
     return any(all(infix in message for infix in infixes) for infixes in ADDITIONAL_OOM_ERROR_INFIX_CONJUNCTIONS)
 
 
+def check_decorator_order(func: Callable[..., Any]) -> None:
+    """
+    Verify that the function is not already wrapped by :func:`infer_maximum_batch_size`.
+
+    :param func:
+        the function about to be decorated
+
+    :raises ValueError:
+        when the decorators are applied in the wrong order
+    """
+    if getattr(func, INFERS_BATCH_SIZE_ATTRIBUTE, None) is None:
+        return
+    name = getattr(func, "__name__", "func")
+    raise ValueError(
+        f"{func} is already wrapped by infer_maximum_batch_size, i.e., the decorators are applied in the "
+        f"wrong order. infer_maximum_batch_size has to be the *outer* one, since it determines the starting "
+        f"value that memory utilization maximization then reduces:\n\n"
+        f"    @infer_maximum_batch_size()\n"
+        f"    @maximize_memory_utilization()\n"
+        f"    def {name}(...): ...\n",
+    )
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
@@ -319,8 +348,12 @@ def maximize_memory_utilization_decorator(
 
         :return:
             The decorated function.
+
+        :raises ValueError:
+            when the function is already wrapped by :func:`infer_maximum_batch_size`
         """
         # Input validation, and extraction of default maximum values
+        check_decorator_order(func)
         signature = inspect.signature(func)
         default_max_values = {
             name: determine_default_max_value(func=func, parameter_name=name, signature=signature)
@@ -475,16 +508,37 @@ def infer_maximum_batch_size(
 
             :return:
                 The result of calling the wrapped function.
+
+            :raises TypeError:
+                when no value for ``x_parameter_name`` is available to infer the batch size from
             """
             bound_arguments = signature.bind_partial(*args, **kwargs)
-            if bound_arguments.arguments.get(parameter_name) is None:
-                inferred_value = len(bound_arguments.arguments[x_parameter_name])
-                if max_value is not None:
-                    inferred_value = min(inferred_value, max_value)
-                # inject the inferred value as a keyword argument, leaving the original call shape untouched, so
-                # that, e.g., stacking with :func:`maximize_memory_utilization` keeps working correctly
-                kwargs[parameter_name] = inferred_value
+            if bound_arguments.arguments.get(parameter_name) is not None:
+                return func(*args, **kwargs)
+
+            x_value = bound_arguments.arguments.get(x_parameter_name, signature.parameters[x_parameter_name].default)
+            if x_value is inspect.Parameter.empty:
+                raise TypeError(
+                    f"Cannot infer {parameter_name}, since {getattr(func, '__name__', func)} did not receive a "
+                    f"value for {x_parameter_name}.",
+                )
+            inferred_value = len(x_value)
+            if max_value is not None:
+                inferred_value = min(inferred_value, max_value)
+
+            if parameter_name in bound_arguments.arguments and parameter_name not in kwargs:
+                # the parameter was passed positionally, as an explicit None. adding a keyword argument would
+                # collide with it, so rewrite the bound arguments instead
+                bound_arguments.arguments[parameter_name] = inferred_value
+                return func(*bound_arguments.args, **bound_arguments.kwargs)
+
+            # otherwise inject the inferred value as a keyword argument, leaving the original call shape
+            # untouched, so that, e.g., stacking with :func:`maximize_memory_utilization` keeps working
+            kwargs[parameter_name] = inferred_value
             return func(*args, **kwargs)
+
+        # note: set *after* functools.wraps, which copies __dict__ from the wrapped function
+        setattr(wrapper_infer_maximum_batch_size, INFERS_BATCH_SIZE_ATTRIBUTE, parameter_name)
 
         return wrapper_infer_maximum_batch_size
 
