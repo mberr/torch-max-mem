@@ -8,7 +8,12 @@ import pytest
 import torch
 
 from torch_max_mem import infer_maximum_batch_size, maximize_memory_utilization
-from torch_max_mem.api import floor_to_nearest_multiple_of, is_oom_error, maximize_memory_utilization_decorator
+from torch_max_mem.api import (
+    KeyHasher,
+    floor_to_nearest_multiple_of,
+    is_oom_error,
+    maximize_memory_utilization_decorator,
+)
 
 
 def knn(x: torch.Tensor, y: torch.Tensor, batch_size: int, k: int = 3) -> torch.Tensor:
@@ -96,6 +101,33 @@ def test_stateful_hasher_sees_positional_keys() -> None:
     assert func(64) == 64
     # a larger n must not silently reuse the value tuned for n=64
     assert func(2048) == 1024
+    assert len(maximizer.parameter_value) == 2
+
+
+def test_key_hasher_tensor_values() -> None:
+    """Test that tensor-valued hashing keys hash by content, not by identity."""
+    hasher = KeyHasher(keys="x")
+    # equal tensors hash equally, even though they are distinct objects
+    assert hasher({"x": torch.zeros(2, 3)}) == hasher({"x": torch.zeros(2, 3)})
+    # differing shape, dtype or device change the hash
+    assert hasher({"x": torch.zeros(2, 3)}) != hasher({"x": torch.zeros(4, 3)})
+    assert hasher({"x": torch.zeros(2, 3)}) != hasher({"x": torch.zeros(2, 3, dtype=torch.float64)})
+
+
+def test_stateful_tensor_key_caches() -> None:
+    """Test that a tensor-valued hashing key does not grow the cache without bounds."""
+    maximizer = maximize_memory_utilization(keys="x")
+
+    @maximizer
+    def func(x: torch.Tensor, batch_size: int = 8) -> int:
+        """Return the batch size."""
+        return batch_size
+
+    for _ in range(10):
+        func(x=torch.rand(3, 4))
+    # all inputs are equivalent, so they share a single cache entry
+    assert len(maximizer.parameter_value) == 1
+    func(x=torch.rand(5, 4))
     assert len(maximizer.parameter_value) == 2
 
 
