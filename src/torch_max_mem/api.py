@@ -190,6 +190,10 @@ ADDITIONAL_OOM_ERROR_INFIXES = {
     "MPS backend out of memory",
     # CPU OOM error
     "DefaultCPUAllocator: not enough memory:",
+    # cf. https://github.com/mberr/torch-max-mem/issues/45
+    # downstream symptoms of the CUDA caching allocator being pushed to its limit under memory pressure
+    "INTERNAL ASSERT FAILED",
+    "CUDA driver error: device not ready",
 }
 
 
