@@ -1,7 +1,7 @@
 """Tests."""
 
 import unittest
-from collections.abc import Sequence
+from collections.abc import Hashable, Mapping, Sequence
 from typing import Any
 
 import pytest
@@ -128,6 +128,34 @@ def test_stateful_tensor_key_caches() -> None:
     # all inputs are equivalent, so they share a single cache entry
     assert len(maximizer.parameter_value) == 1
     func(x=torch.rand(5, 4))
+    assert len(maximizer.parameter_value) == 2
+
+
+def test_stateful_hasher_sees_flat_variadic_keyword_arguments() -> None:
+    """Test that a hasher receives ``**kwargs`` entries individually, not as a nested dict."""
+    seen: list[Mapping[str, Any]] = []
+
+    def hasher(kwargs: Mapping[str, Any]) -> int:
+        """Record what the hasher is handed, and hash over all of it."""
+        seen.append(dict(kwargs))
+        # a hasher may iterate over everything it is given, so every value has to be hashable
+        return hash(tuple(sorted((k, v) for k, v in kwargs.items() if isinstance(v, Hashable))))
+
+    @maximize_memory_utilization(hasher=hasher)
+    def func(*, a: int, batch_size: int = 8, **kwargs: Any) -> int:
+        """Return the batch size."""
+        return batch_size
+
+    func(a=1, mode="testing", extra=None)
+    assert seen[-1] == {"a": 1, "batch_size": 8, "mode": "testing", "extra": None}
+    # in particular, the variadic parameter itself must not show up as an unhashable dict
+    assert "kwargs" not in seen[-1]
+
+    # entries passed via **kwargs must still separate the cache
+    maximizer = maximize_memory_utilization(hasher=hasher)
+    counted = maximizer(func.__wrapped__)  # type: ignore[attr-defined]
+    counted(a=1, mode="testing")
+    counted(a=1, mode="validation")
     assert len(maximizer.parameter_value) == 2
 
 

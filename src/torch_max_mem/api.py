@@ -608,6 +608,27 @@ class KeyHasher:
         return hash(tuple(hashable_key(kwargs.get(key, None)) for key in self.keys))
 
 
+def flatten_variadic_keyword_arguments(bound_arguments: inspect.BoundArguments) -> dict[str, Any]:
+    """
+    Return the bound arguments with the variadic keyword arguments lifted into the top level.
+
+    :class:`inspect.BoundArguments` stores a ``**kwargs`` parameter as a single nested dict. Hashers, however,
+    are written against the flat shape they see at the call site, and a nested dict is not even hashable, so
+    it is flattened back out here.
+
+    :param bound_arguments:
+        the bound arguments
+
+    :return:
+        a flat mapping from parameter name to value
+    """
+    arguments = dict(bound_arguments.arguments)
+    for name, parameter in bound_arguments.signature.parameters.items():
+        if parameter.kind is inspect.Parameter.VAR_KEYWORD:
+            arguments.update(arguments.pop(name, {}))
+    return arguments
+
+
 class MemoryUtilizationMaximizer:
     """Stateful memory utilization maximizer."""
 
@@ -663,7 +684,7 @@ class MemoryUtilizationMaximizer:
             # alike, both for hashing and for injecting the tuned values back in
             bound = signature.bind(*args, **kwargs)
             bound.apply_defaults()
-            h = self.hasher(bound.arguments)
+            h = self.hasher(flatten_variadic_keyword_arguments(bound))
             if h in self.parameter_value:
                 values = self.parameter_value[h]
             else:
