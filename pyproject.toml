@@ -28,7 +28,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
-    # TODO add your topics from the Trove controlled vocabulary (see https://pypi.org/classifiers)
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 keywords = [
     "snekpack",     # please keep this keyword to credit the cookiecutter-snekpack template
@@ -130,7 +131,9 @@ extend-select = [
     "I",   # isort
     "UP",  # pyupgrade
     "D",   # pydocstyle
-    "DOC", # pydoclint
+    # note: "DOC" (pydoclint) is deliberately not selected. It only recognizes Google/NumPy style sections,
+    # and reports a missing "Returns" section for every docstring using the reST field lists (":return:")
+    # this project documents with. It also requires ruff's preview mode, so selecting it was a no-op anyway.
     "B",   # bugbear
     "S",   # bandit
     "T20", # print

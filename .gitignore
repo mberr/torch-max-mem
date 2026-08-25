@@ -320,3 +320,4 @@ scratch/
 
 .vscode
 .idea
+uv.lock
