@@ -12,6 +12,7 @@ from torch_max_mem.api import (
     KeyHasher,
     floor_to_nearest_multiple_of,
     is_oom_error,
+    iter_tensor_devices,
     maximize_memory_utilization_decorator,
 )
 
@@ -308,6 +309,24 @@ def test_floor_to_nearest_multiple_of(x: int, q: int) -> None:
 def test_oom_error_detection(error: BaseException, exp: bool) -> None:
     """Test OOM error detection."""
     assert is_oom_error(error) is exp
+
+
+def test_iter_tensor_devices_nested() -> None:
+    """Test that tensors nested inside containers are found."""
+    tensor = torch.zeros(1)
+    assert list(iter_tensor_devices(tensor)) == [tensor.device]
+    assert list(iter_tensor_devices([tensor])) == [tensor.device]
+    assert list(iter_tensor_devices(x={"a": (tensor,)})) == [tensor.device]
+    # non-tensors and strings are ignored rather than traversed
+    assert list(iter_tensor_devices("abc", 1, None, {"k": "v"})) == []
+
+
+def test_iter_tensor_devices_self_referential() -> None:
+    """Test that a self-referential container does not cause an infinite loop."""
+    tensor = torch.zeros(1)
+    nested: list[Any] = [tensor]
+    nested.append(nested)
+    assert list(iter_tensor_devices(nested)) == [tensor.device]
 
 
 @pytest.mark.slow

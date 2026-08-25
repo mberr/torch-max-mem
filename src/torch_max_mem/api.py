@@ -139,29 +139,23 @@ def determine_default_max_value(
 def determine_max_value(
     bound_arguments: inspect.BoundArguments,
     parameter_name: str,
-    default_max_value: int | Callable[P, int] | None,
-    *args: P.args,
-    **kwargs: P.kwargs,
+    default_max_value: int | None,
 ) -> int:
     """
     Either use the provided value, or the default maximum value.
 
     :param bound_arguments:
         the bound arguments of the function
-    :param args:
-        the positional parameters of the function: necessary when the default max value is a callable
-    :param kwargs:
-        the keyword parameters of the function: necessary when the default max value is a callable
     :param parameter_name:
         the parameter name
     :param default_max_value:
-        the default max value, or a callable to determine one
+        the default max value
 
     :return:
         the maximum value
 
     :raises ValueError:
-        when the given value to the parameter is None
+        when the given value to the parameter is None, and there is no default either
     """
     max_value = bound_arguments.arguments.get(parameter_name)
     if isinstance(max_value, int):
@@ -170,9 +164,7 @@ def determine_max_value(
         raise ValueError(f"{parameter_name}={max_value!r} is neither integer nor None.")
     if default_max_value is None:
         raise ValueError("Neither value nor default value found")
-    if isinstance(default_max_value, int):
-        return default_max_value
-    return default_max_value(*args, **kwargs)
+    return default_max_value
 
 
 # cf. https://github.com/pykeen/pykeen/pull/279
@@ -208,15 +200,25 @@ ADDITIONAL_OOM_ERROR_INFIX_CONJUNCTIONS: Collection[Collection[str]] = (
 
 
 def iter_tensor_devices(*args: Any, **kwargs: Any) -> Iterable[torch.device]:
-    """Iterate over tensors' devices (may contain duplicates)."""
-    for obj in itertools.chain(args, kwargs.values()):
+    """Iterate over the devices of all tensors, also those nested in containers (may contain duplicates)."""
+    stack: list[Any] = list(itertools.chain(args, kwargs.values()))
+    # guard against self-referential containers
+    seen: set[int] = set()
+    while stack:
+        obj = stack.pop()
         if isinstance(obj, torch.Tensor):
             yield obj.device
+        # note: deliberately not `Sequence`, which would also match `str` and recurse character by character
+        elif isinstance(obj, (Mapping, list, tuple, set, frozenset)):
+            if id(obj) in seen:
+                continue
+            seen.add(id(obj))
+            stack.extend(obj.values() if isinstance(obj, Mapping) else obj)
 
 
 def create_tensor_checker(
     safe_devices: Collection[str] | None = None,
-) -> Callable[P, None]:
+) -> Callable[..., None]:
     """
     Create a function that warns when tensors are on any device that is not considered safe.
 
@@ -235,7 +237,7 @@ def create_tensor_checker(
         f"Will warn about running memory utilization maximization on tensors on devices other than {safe_devices_set}",
     )
 
-    def check_tensors(*args: P.args, **kwargs: P.kwargs) -> None:
+    def check_tensors(*args: Any, **kwargs: Any) -> None:
         """Check whether any tensor argument is on a dangerous device."""
         device_types = {device.type for device in iter_tensor_devices(*args, **kwargs)}
 
@@ -305,7 +307,7 @@ def maximize_memory_utilization_decorator(
     :return:
         A decorator for functions.
     """
-    maybe_warn: Callable[..., None] = create_tensor_checker(safe_devices=safe_devices)
+    maybe_warn = create_tensor_checker(safe_devices=safe_devices)
     parameter_names, qs = upgrade_to_sequence(parameter_name, q)
 
     def decorator_maximize_memory_utilization(
@@ -350,13 +352,7 @@ def maximize_memory_utilization_decorator(
             bound_arguments.apply_defaults()
             # determine actual max values
             max_values = [
-                determine_max_value(
-                    bound_arguments,
-                    name,
-                    default_max_value,
-                    *args,
-                    **kwargs,
-                )
+                determine_max_value(bound_arguments, name, default_max_value)
                 for name, default_max_value in default_max_values.items()
             ]
             i = 0
@@ -366,7 +362,7 @@ def maximize_memory_utilization_decorator(
 
             while i < len(max_values):
                 while max_values[i] > 0:
-                    p_kwargs = dict(zip(parameter_names, max_values, strict=False))
+                    p_kwargs = dict(zip(parameter_names, max_values, strict=True))
                     # note: changes to arguments apply to both, .args and .kwargs
                     bound_arguments.arguments.update(p_kwargs)
                     try:
