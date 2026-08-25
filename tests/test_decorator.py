@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 import torch
 
-from torch_max_mem import infer_maximum_batch_size, maximize_memory_utilization
+from torch_max_mem import infer_maximum_batch_size, maximize_memory_utilization, set_memory_budget
 from torch_max_mem.api import (
     KeyHasher,
     floor_to_nearest_multiple_of,
@@ -416,6 +416,30 @@ def test_iter_tensor_devices_self_referential() -> None:
     nested: list[Any] = [tensor]
     nested.append(nested)
     assert list(iter_tensor_devices(nested)) == [tensor.device]
+
+
+def test_set_memory_budget_validation() -> None:
+    """Test that a non-positive budget is rejected."""
+    with pytest.raises(ValueError, match="must be positive"):
+        set_memory_budget(0)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Requires CUDA support.")
+def test_set_memory_budget() -> None:
+    """Test that the budget bounds the allocator with a catchable error."""
+    total = torch.cuda.get_device_properties(torch.cuda.current_device()).total_memory
+    budget = 64 * 1024**2
+    try:
+        fraction = set_memory_budget(budget)
+        assert fraction == pytest.approx(budget / total)
+        # allocating beyond the budget fails in a way this package recognizes and handles
+        with pytest.raises(torch.cuda.OutOfMemoryError) as exc_info:
+            torch.empty(4 * budget, dtype=torch.uint8, device="cuda")
+        assert is_oom_error(exc_info.value)
+        # a budget exceeding the device's memory is clamped
+        assert set_memory_budget(4 * total) == 1.0
+    finally:
+        torch.cuda.set_per_process_memory_fraction(1.0, torch.cuda.current_device())
 
 
 @pytest.mark.slow
