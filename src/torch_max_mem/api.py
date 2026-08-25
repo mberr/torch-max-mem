@@ -479,6 +479,25 @@ def infer_maximum_batch_size(
     return decorator_infer_maximum_batch_size
 
 
+def hashable_key(value: Any) -> Any:
+    """
+    Convert a value into a surrogate that hashes by content rather than by identity.
+
+    :param value:
+        the value associated with a hashing key
+
+    :return:
+        the value itself, or, for tensors, a surrogate describing their memory-relevant properties
+    """
+    if isinstance(value, torch.Tensor):
+        # torch.Tensor.__hash__ returns id(self), i.e., it hashes by identity. Using a tensor as a hashing key
+        # would therefore never hit the cache, let it grow without bounds, and - since CPython recycles ids -
+        # eventually apply a stale entry to an unrelated tensor. Only the shape, dtype and device of a tensor
+        # matter for how much memory an operation on it needs.
+        return "torch.Tensor", tuple(value.shape), value.dtype, value.device
+    return value
+
+
 class KeyHasher:
     """A hasher based on (a subset of) keys."""
 
@@ -520,7 +539,7 @@ class KeyHasher:
         :return:
             the hash of the tuple of values associated with the stored keys.
         """
-        return hash(tuple(kwargs.get(key, None) for key in self.keys))
+        return hash(tuple(hashable_key(kwargs.get(key, None)) for key in self.keys))
 
 
 class MemoryUtilizationMaximizer:
@@ -574,16 +593,18 @@ class MemoryUtilizationMaximizer:
         @functools.wraps(wrapped)
         def inner(*args: P.args, **kwargs: P.kwargs) -> R:
             """Evaluate function with the stored parameter size."""
-            h = self.hasher(kwargs)
+            # bind against the signature first, so that positionally and keyword-passed arguments are treated
+            # alike, both for hashing and for injecting the tuned values back in
+            bound = signature.bind(*args, **kwargs)
+            bound.apply_defaults()
+            h = self.hasher(bound.arguments)
             if h in self.parameter_value:
                 values = self.parameter_value[h]
             else:
-                bound = signature.bind(*args, **kwargs)
-                bound.apply_defaults()
                 # todo: default logic?
                 values = tuple(bound.arguments[name] for name in self.parameter_names)
-            kwargs.update(zip(self.parameter_names, values, strict=False))
-            result, self.parameter_value[h] = wrapped(*args, **kwargs)
+            bound.arguments.update(zip(self.parameter_names, values, strict=True))
+            result, self.parameter_value[h] = wrapped(*bound.args, **bound.kwargs)
             return result
 
         return inner
