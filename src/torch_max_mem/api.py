@@ -72,6 +72,10 @@ __all__ = [
 R = TypeVar("R")
 P = ParamSpec("P")
 
+#: marks a function wrapped by :func:`infer_maximum_batch_size`, so that applying memory utilization
+#: maximization on top of it - i.e., in the wrong order - can be rejected with a helpful message
+INFERS_BATCH_SIZE_ATTRIBUTE = "__torch_max_mem_infers_batch_size__"
+
 
 def upgrade_to_sequence(
     parameter_name: str | Sequence[str], q: int | Sequence[int]
@@ -289,6 +293,29 @@ def is_oom_error(error: BaseException) -> bool:
     return any(all(infix in message for infix in infixes) for infixes in ADDITIONAL_OOM_ERROR_INFIX_CONJUNCTIONS)
 
 
+def check_decorator_order(func: Callable[..., Any]) -> None:
+    """
+    Verify that the function is not already wrapped by :func:`infer_maximum_batch_size`.
+
+    :param func:
+        the function about to be decorated
+
+    :raises ValueError:
+        when the decorators are applied in the wrong order
+    """
+    if getattr(func, INFERS_BATCH_SIZE_ATTRIBUTE, None) is None:
+        return
+    name = getattr(func, "__name__", "func")
+    raise ValueError(
+        f"{func} is already wrapped by infer_maximum_batch_size, i.e., the decorators are applied in the "
+        f"wrong order. infer_maximum_batch_size has to be the *outer* one, since it determines the starting "
+        f"value that memory utilization maximization then reduces:\n\n"
+        f"    @infer_maximum_batch_size()\n"
+        f"    @maximize_memory_utilization()\n"
+        f"    def {name}(...): ...\n",
+    )
+
+
 def maximize_memory_utilization_decorator(
     parameter_name: str | Sequence[str] = "batch_size",
     q: int | Sequence[int] = 32,
@@ -321,8 +348,12 @@ def maximize_memory_utilization_decorator(
 
         :return:
             The decorated function.
+
+        :raises ValueError:
+            when the function is already wrapped by :func:`infer_maximum_batch_size`
         """
         # Input validation, and extraction of default maximum values
+        check_decorator_order(func)
         signature = inspect.signature(func)
         default_max_values = {
             name: determine_default_max_value(func=func, parameter_name=name, signature=signature)
@@ -505,6 +536,9 @@ def infer_maximum_batch_size(
             # untouched, so that, e.g., stacking with :func:`maximize_memory_utilization` keeps working
             kwargs[parameter_name] = inferred_value
             return func(*args, **kwargs)
+
+        # note: set *after* functools.wraps, which copies __dict__ from the wrapped function
+        setattr(wrapper_infer_maximum_batch_size, INFERS_BATCH_SIZE_ATTRIBUTE, parameter_name)
 
         return wrapper_infer_maximum_batch_size
 

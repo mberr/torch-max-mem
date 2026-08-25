@@ -255,6 +255,17 @@ def test_infer_maximum_batch_size_missing_parameter() -> None:
             """Test function."""
 
 
+def test_infer_maximum_batch_size_wrong_decorator_order() -> None:
+    """Test that applying the decorators in the wrong order fails with a helpful message."""
+    with pytest.raises(ValueError, match="wrong order"):
+
+        @maximize_memory_utilization()
+        @infer_maximum_batch_size()
+        def func(x: Sequence[Any], batch_size: int | None = None) -> int | None:
+            """Test function."""
+            return batch_size
+
+
 def test_infer_maximum_batch_size_stacked() -> None:
     """Test combining batch size inference with memory utilization maximization."""
     x = torch.rand(100, 100)
